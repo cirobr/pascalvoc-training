@@ -1,0 +1,27 @@
+[deps]
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+DataAugmentation = "88a5189c-e7ff-4f85-ac6b-e6158070f02e"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+FLoops = "cc61a311-1640-44b5-9fba-1b764f453329"
+Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
+Images = "916415d5-f1e6-5110-898d-aaa5f9f070e0"
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+LibCUDA = "62f6ea4e-5fa0-47a8-a0b1-4c5959d5d2d3"
+LibFluxML = "06a27b3f-e48e-4378-94d6-12b963ed26a7"
+MLUtils = "f1d291b0-491e-4a28-83b9-f70985020b54"
+OffsetArrays = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
+ParameterSchedulers = "d7d3b36b-41b8-4d0d-a2bf-768c6151755e"
+PascalVocTools = "3fdd8fd9-3429-41df-93e4-b1e51c23000a"
+PreprocessingImages = "6a52935f-723c-4a2a-832b-626b8fc4f182"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+ProgressBars = "49802e3a-d2f1-5c88-81d8-b72133a6f568"
+TensorBoardLogger = "899adc3e-224a-11e9-021f-63837185c80f"
+TinyMachines = "5d0fdf5f-995e-4f1b-a9e8-363392c4fe32"
+cuDNN = "02a925ec-e4fe-4b08-9a7e-0d78e3d38ccd"
+
+[sources]
+LibCUDA = {rev = "main", url = "git@github.com:cirobr/LibCUDA.jl.git"}
+LibFluxML = {rev = "main", url = "git@github.com:cirobr/LibFluxML.jl.git"}
+PascalVocTools = {rev = "main", url = "git@github.com:cirobr/PascalVocTools.jl.git"}
+PreprocessingImages = {rev = "main", url = "git@github.com:cirobr/PreprocessingImages.jl.git"}
