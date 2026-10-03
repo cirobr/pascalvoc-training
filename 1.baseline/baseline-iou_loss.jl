@@ -52,10 +52,7 @@ import Statistics: mean, minimum, maximum, norm, std, median
 
 # private libs
 using LibFluxML
-import LibFluxML:
-      gdfl, iou_loss,   # losses
-      acc_score, f1_score, iou_score, per_class_iou   # metrics
-using PreprocessingImages; const p=PreprocessingImages
+import LibFluxML: acc_score, f1_score, iou_score, per_class_iou   # metrics
 using PascalVocTools; const pv=PascalVocTools
 
 using LibCUDA
@@ -64,7 +61,7 @@ LibCUDA.cleangpu()
 
 # dataset constants
 const imagesize = (500,500)   # original size
-const framesize = (512, 512)
+const framesize = (256,256)   # resized size
 const classnrs  = pv.class_numbers[1:end-1]   # 0:20
 const C = length(classnrs)
 
@@ -111,9 +108,9 @@ end
 
 # augmentation pipeline
 intensity_trainpipe = Identity()
-geometric_trainpipe = CenterCrop(framesize)
+geometric_trainpipe = CenterResizeCrop(framesize)
 intensity_validpipe = Identity()
-geometric_validpipe = CenterCrop(framesize)
+geometric_validpipe = CenterResizeCrop(framesize)
 
 
 function data_augmentation(
@@ -334,7 +331,7 @@ loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.tra
 # loss functions
 function trainLossFunction(model,X,y)
       yhat, y = evaluate_model(model, X, y)
-      return iou_loss(yhat, y;
+      return LibFluxML.iou_loss(yhat, y;
                   logits=true,
                   include_background=false,
                   exclude_voids=true,
@@ -345,7 +342,7 @@ end
 
 function validLossFunction(model,X,y)
       yhat, y = evaluate_model(model, X, y)
-      return iou_loss(yhat, y;
+      return LibFluxML.iou_loss(yhat, y;
                   logits=true,
                   include_background=false,
                   exclude_voids=true,

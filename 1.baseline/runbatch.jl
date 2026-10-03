@@ -10,14 +10,14 @@ Template for executing multiple scripts in series.
 envpath       = "../"
 cudadevice    = 1
 epochs        = 500
-minibatchsize = 2
-accum_steps   = 4
+minibatchsize = 6
+accum_steps   = 2
 debugflag     = false
 
 
 ### projects
 scripts = [
-    "train-baseline.jl",
+    "baseline-iou_loss.jl",
     # "baseline-ce_loss.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
