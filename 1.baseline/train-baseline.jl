@@ -111,7 +111,7 @@ end
 
 # augmentation pipeline
 intensity_trainpipe = Identity()
-geometric_validpipe = CenterCrop(framesize)
+geometric_trainpipe = CenterCrop(framesize)
 intensity_validpipe = Identity()
 geometric_validpipe = CenterCrop(framesize)
 
@@ -168,8 +168,9 @@ N = size(df, 1)
 train_idx, val_idx = MLUtils.splitobs(1:N, at=0.7, shuffle=true)
 dftrain = df[train_idx, :]
 dfvalid = df[val_idx, :]
-dftrain = first(dftrain, 100)
-dfvalid = first(dfvalid, 50)
+# dftrain = first(dftrain, 100)
+# dfvalid = first(dfvalid, 50)
+# @warn "train/valid split: $(size(dftrain,1)) train, $(size(dfvalid,1)) valid"
 
 # debug mode
 if debugflag

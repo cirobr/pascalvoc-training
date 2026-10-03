@@ -9,10 +9,10 @@ Template for executing multiple scripts in series.
 ### arguments
 envpath       = "../"
 cudadevice    = 1
-epochs        = 1 #500
-minibatchsize = 1
-accum_steps   = 1
-debugflag     = true
+epochs        = 500
+minibatchsize = 2
+accum_steps   = 4
+debugflag     = false
 
 
 ### projects

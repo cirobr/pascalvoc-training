@@ -180,6 +180,7 @@ dftrain = df[train_idx, :]
 dfvalid = df[val_idx, :]
 # dftrain = first(dftrain, 100)
 # dfvalid = first(dfvalid, 50)
+# @warn "train/valid split: $(size(dftrain,1)) train, $(size(dfvalid,1)) valid"
 
 # debug mode
 if debugflag
