@@ -63,9 +63,9 @@ LibCUDA.cleangpu()
 
 
 # dataset constants
-const imagesize  = (500,500)   # original size
-const framesize  = (512, 512)
-const classnrs = 0:20   # 0:20 + 255 (void)
+const imagesize = (500,500)   # original size
+const framesize = (512, 512)
+const classnrs  = pv.class_numbers[1:end-1]   # 0:20
 const C = length(classnrs)
 
 
@@ -110,20 +110,10 @@ end
 
 
 # augmentation pipeline
-intensity_trainpipe =
-      AdjustBrightness(0.5) |>
-      AdjustContrast(0.5)
-      
-geometric_trainpipe = 
-      Maybe(FlipX{2}()) |>
-      Zoom() |>               # 1.0 - 1.2
-      WarpAffine(0.2) |>      # random translation, shear and rotation
-      CenterCrop(framesize)   # or RandomCrop(framesize)
-
+intensity_trainpipe = Identity()
+geometric_trainpipe = CenterCrop(framesize)
 intensity_validpipe = Identity()
-
-geometric_validpipe = 
-      CenterCrop(framesize)
+geometric_validpipe = CenterCrop(framesize)
 
 
 function data_augmentation(
@@ -344,15 +334,10 @@ loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.tra
 # loss functions
 function trainLossFunction(model,X,y)
       yhat, y = evaluate_model(model, X, y)
-      return gdfl(yhat, y;
+      return ce_loss(yhat, y;
                   logits=true,
                   include_background=false,
                   exclude_voids=true,
-                  gamma=2,
-                  focal_weight=1.0,
-                  dice_weight=1.0,
-                  # weights=train_weights,
-                  square=false,
                   reduction=:sum,
                   device=dev,
       )
@@ -372,10 +357,10 @@ end
 
 
 # optimizer & scheduler
-η       = 5e-4
-final_η = 5e-5
+η       = 1e-3
+# final_η = 5e-5
 β  = (0.9, 0.999)
-λ  = 1e-4
+# λ  = 1e-5
 # cn = 1.0    # clip norm
 # cg = 1.0    # clip grad
 
@@ -383,17 +368,18 @@ opt = OptimiserChain(
       Flux.AccumGrad(accum_steps),
       # Flux.ClipNorm(cn),
       # Flux.ClipGrad(cg),
-      Flux.AdamW(η, β, λ),
+      # Flux.AdamW(η, β, λ),
+      Flux.Adam(η, β),
 )
 # opt_mp = Optimisers.MixedPrecision(Float16, opt)
 optimizerState = Flux.setup(opt, model)
 # Flux.freeze!(optimizerState.encoder)
 
-T1 = 200
-T2 = 500 - T1
-cosine_part   = CosAnneal(l0=η, l1=final_η, period=T1, restart=false)
-constant_part = final_η
-scheduler = Sequence(cosine_part => T1, constant_part => T2)
+# T1 = 200
+# T2 = 500 - T1
+# cosine_part   = CosAnneal(l0=η, l1=final_η, period=T1, restart=false)
+# constant_part = final_η
+# scheduler = Sequence(cosine_part => T1, constant_part => T2)
 @info "optimizer OK"
 
 
@@ -450,7 +436,7 @@ model_monitor.number_since_best = 10*epochs  # not used
 model_monitor.patience = 10*epochs           # not used
 
 stop_monitor = LibFluxML.EarlyStopper()
-stop_monitor.number_since_best = 10
+stop_monitor.number_since_best = 15
 stop_monitor.patience = 5
 
 # training loop
@@ -458,13 +444,13 @@ LibCUDA.cleangpu()
 reset!(logger)
 
 validlosses = []
-# for epoch in 1:epochs
-for (eta, epoch) in zip(scheduler, 1:epochs)
+for epoch in 1:epochs
+# for (eta, epoch) in zip(scheduler, 1:epochs)
       LibCUDA.garbage_collection()
 
       @printf "*** Epoch %d/%d ***\n" epoch epochs
-      Flux.adjust!(optimizerState, eta)
-      @printf "Learning rate: %.3e \n\n" eta
+      # Flux.adjust!(optimizerState, eta)
+      # @printf "Learning rate: %.3e \n\n" eta
 
       # train epoch
       trainloss = trainEpoch!(trainLossFunction, model, train_loader, optimizerState;
@@ -498,9 +484,6 @@ for (eta, epoch) in zip(scheduler, 1:epochs)
       end
       println()
 
-      # model parameters
-      # ws = Flux.destructure(model)[1] |> cpu
-
       # log data
       Base.with_logger(logger) do
             @info "Loss/Training" train_loss=trainloss
@@ -516,8 +499,6 @@ for (eta, epoch) in zip(scheduler, 1:epochs)
                   class_name = "Class $(classnrs[i])"
                   @info "Metric/Validation/IoU/$class_name" metric=loss log_step_increment=0
             end
-
-            # @info "Weights" weights=ws log_step_increment=0   # weights histogram
       end
 
       # model checkpoint & early stopping

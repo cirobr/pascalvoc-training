@@ -18,8 +18,7 @@ debugflag     = false
 ### projects
 scripts = [
     "train-baseline.jl",
-    # "train_no_weights.jl",
-    # "train_with_weights.jl",
+    # "baseline-ce_loss.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 

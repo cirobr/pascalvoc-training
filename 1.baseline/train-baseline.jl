@@ -63,9 +63,9 @@ LibCUDA.cleangpu()
 
 
 # dataset constants
-const imagesize  = (500,500)   # original size
-const framesize  = (512, 512)
-const classnrs = 0:20   # 0:20 + 255 (void)
+const imagesize = (500,500)   # original size
+const framesize = (512, 512)
+const classnrs  = pv.class_numbers[1:end-1]   # 0:20
 const C = length(classnrs)
 
 
@@ -357,10 +357,10 @@ end
 
 
 # optimizer & scheduler
-η       = 5e-4
-final_η = 5e-5
+η       = 1e-3
+# final_η = 5e-5
 β  = (0.9, 0.999)
-λ  = 1e-4
+# λ  = 1e-5
 # cn = 1.0    # clip norm
 # cg = 1.0    # clip grad
 
@@ -368,7 +368,8 @@ opt = OptimiserChain(
       Flux.AccumGrad(accum_steps),
       # Flux.ClipNorm(cn),
       # Flux.ClipGrad(cg),
-      Flux.AdamW(η, β, λ),
+      # Flux.AdamW(η, β, λ),
+      Flux.Adam(η, β),
 )
 # opt_mp = Optimisers.MixedPrecision(Float16, opt)
 optimizerState = Flux.setup(opt, model)
@@ -435,7 +436,7 @@ model_monitor.number_since_best = 10*epochs  # not used
 model_monitor.patience = 10*epochs           # not used
 
 stop_monitor = LibFluxML.EarlyStopper()
-stop_monitor.number_since_best = 10
+stop_monitor.number_since_best = 15
 stop_monitor.patience = 5
 
 # training loop
@@ -483,9 +484,6 @@ for epoch in 1:epochs
       end
       println()
 
-      # model parameters
-      # ws = Flux.destructure(model)[1] |> cpu
-
       # log data
       Base.with_logger(logger) do
             @info "Loss/Training" train_loss=trainloss
@@ -501,8 +499,6 @@ for epoch in 1:epochs
                   class_name = "Class $(classnrs[i])"
                   @info "Metric/Validation/IoU/$class_name" metric=loss log_step_increment=0
             end
-
-            # @info "Weights" weights=ws log_step_increment=0   # weights histogram
       end
 
       # model checkpoint & early stopping
