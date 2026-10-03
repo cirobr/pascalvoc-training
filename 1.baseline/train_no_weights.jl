@@ -178,8 +178,8 @@ N = size(df, 1)
 train_idx, val_idx = MLUtils.splitobs(1:N, at=0.7, shuffle=true)
 dftrain = df[train_idx, :]
 dfvalid = df[val_idx, :]
-dftrain = first(dftrain, 100)
-dfvalid = first(dfvalid, 50)
+# dftrain = first(dftrain, 100)
+# dfvalid = first(dfvalid, 50)
 
 # debug mode
 if debugflag
