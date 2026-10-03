@@ -165,9 +165,9 @@ N = size(df, 1)
 train_idx, val_idx = MLUtils.splitobs(1:N, at=0.7, shuffle=true)
 dftrain = df[train_idx, :]
 dfvalid = df[val_idx, :]
-dftrain = first(dftrain, 100)
-dfvalid = first(dfvalid, 50)
-@warn "train/valid split: $(size(dftrain,1)) train, $(size(dfvalid,1)) valid"
+# dftrain = first(dftrain, 100)
+# dfvalid = first(dfvalid, 50)
+# @warn "train/valid split: $(size(dftrain,1)) train, $(size(dfvalid,1)) valid"
 
 # debug mode
 if debugflag
@@ -329,6 +329,7 @@ loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.tra
 
 
 # loss functions
+# include("functions.jl")   # load loss functions from functions.jl
 function trainLossFunction(model,X,y)
       yhat, y = evaluate_model(model, X, y)
       return LibFluxML.ce_loss(yhat, y;
