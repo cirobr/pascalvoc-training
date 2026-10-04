@@ -329,10 +329,9 @@ loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.tra
 
 
 # loss functions
-# include("functions.jl")   # load loss functions from functions.jl
 function trainLossFunction(model,X,y)
       yhat, y = evaluate_model(model, X, y)
-      return LibFluxML.ce_loss(yhat, y;
+      return LibFluxML.iou_loss(yhat, y;
                   logits=true,
                   include_background=false,
                   exclude_voids=true,
@@ -355,7 +354,7 @@ end
 
 
 # optimizer & scheduler
-η       = 1e-3
+η       = 5e-3
 # final_η = 5e-5
 β  = (0.9, 0.999)
 # λ  = 1e-5
