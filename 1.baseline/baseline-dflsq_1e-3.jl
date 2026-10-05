@@ -9,12 +9,12 @@ Template for training vision models.
 cd(@__DIR__)
 
 ### arguments
-# envpath       = "../"
-# cudadevice    = 0
-# epochs        = 1
-# minibatchsize = 1
-# accum_steps   = 1
-# debugflag     = true
+envpath       = "../"
+cudadevice    = 0
+epochs        = 1
+minibatchsize = 1
+accum_steps   = 1
+debugflag     = true
 
 
 ### libs
@@ -94,6 +94,15 @@ function get_normalization_params(x::AbstractArray{RGB{N0f8}})
       μs = mean(xf, dims=dims) |> x -> dropdims(x, dims=dims) .|> Float32
       σs = std(xf, dims=dims)  |> x -> dropdims(x, dims=dims) .|> Float32
       return μs, σs
+end
+
+function compute_class_frequencies(y::AbstractArray)
+      @assert ndims(y) == 4      # HWCN, one-hot encoded
+      C = size(y, 3)
+      @assert C > 1              # at least two classes
+      dims = (1,2,4)
+      fs = sum(y, dims=dims)     # sum over H,W,N
+      return reshape(fs, C)
 end
 
 
@@ -217,15 +226,13 @@ FLoops.@floop for i in 1:Ntrain
             y -> reshape(y, size(y)..., 1) .|> Bool
       ys[:,:,:,i] = mask
 end
-
-cs = LibFluxML.compute_class_counts(ys)
+fs = compute_class_frequencies(ys)
 xs = nothing
 ys = nothing
 # @assert false
 
-cs = cs[2:end]   # ignore background class
 median_weights, inverse_weights, inverse_squared_weights, inverse_class_weights =
-      LibFluxML.compute_class_weights(cs)
+      LibFluxML.compute_class_weights(fs)
 
 train_weights = median_weights .|> Float32 |> dev
 @info "loss weights OK"
@@ -324,12 +331,15 @@ loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.tra
 # loss functions
 function trainLossFunction(model,X,y)
       yhat, y = evaluate_model(model, X, y)
-      return LibFluxML.iou_loss(yhat, y;
+      return LibFluxML.dfl(yhat, y;
                   logits=true,
-                  include_background=false,   # background class is excluded from loss
+                  include_background=false,
                   exclude_voids=true,
+                  gamma=2,
+                  square=true,
+                  focal_weight=1.0,
+                  dice_weight=1.0,
                   reduction=:sum,
-                  weights=train_weights,      # background class is excluded from weights
                   device=dev,
       )
 end

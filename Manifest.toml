@@ -870,10 +870,10 @@ version = "0.2.1"
 
 [[deps.GPUCompiler]]
 deps = ["CompilerCaching", "ExprTools", "InteractiveUtils", "LLVM", "Libdl", "Logging", "PrecompileTools", "Preferences", "REPL", "ScopedValues", "TOML", "Tracy", "UUIDs", "tree_sitter_gcn_jll", "tree_sitter_llvm_jll", "tree_sitter_ptx_jll", "tree_sitter_spirv_jll"]
-git-tree-sha1 = "25b4db7a14c6959733b0bd730812d6dd1067e0d8"
+git-tree-sha1 = "df0aaa99581473fde47162eca00ce00c6e607903"
 registries = "General"
 uuid = "61eb1bfa-7361-4325-ad38-22787b887f55"
-version = "2.11.1"
+version = "2.12.0"
 
     [deps.GPUCompiler.extensions]
     HighlightsExt = "Highlights"
@@ -1423,7 +1423,7 @@ version = "8.18.0+1"
 
 [[deps.LibFluxML]]
 deps = ["Flux", "ImageCore", "JLD2", "ProgressBars", "Statistics"]
-git-tree-sha1 = "2d2e0391e3572a5c14f967e96fca3e86e42d765c"
+git-tree-sha1 = "a36b22aefae7a9e21ebd52518ad4b47f8a5080c3"
 repo-rev = "main"
 repo-url = "git@github.com:cirobr/LibFluxML.jl.git"
 uuid = "06a27b3f-e48e-4378-94d6-12b963ed26a7"
@@ -2547,10 +2547,10 @@ uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 version = "1.11.0"
 
 [[deps.UnsafeAtomics]]
-git-tree-sha1 = "30db7f4de09a321651498004c1cccfcef8a32495"
+git-tree-sha1 = "9b053eb4a4128ff62f4392c2d743f25f6ed7559b"
 registries = "General"
 uuid = "013be700-e6cd-48c3-b4a1-df204f14c38f"
-version = "0.3.3"
+version = "0.3.4"
 weakdeps = ["LLVM"]
 
     [deps.UnsafeAtomics.extensions]
