@@ -17,10 +17,12 @@ debugflag     = false
 
 ### projects
 scripts = [
-    "baseline-iou_loss_5e-3.jl",
-    "baseline-iou_loss_1e-3.jl",
-    "baseline-ce_loss_5e-3.jl",
-    "baseline-ce_loss_1e-3.jl",
+    # "baseline-iou_loss_5e-3.jl",
+    # "baseline-iou_loss_1e-3.jl",
+    # "baseline-ce_loss_5e-3.jl",
+    # "baseline-ce_loss_1e-3.jl",
+    # "baseline-gdfl_1e-3.jl",
+    "baseline-iou_loss_1e-3_weights.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
