@@ -324,12 +324,11 @@ loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.tra
 # loss functions
 function trainLossFunction(model,X,y)
       yhat, y = evaluate_model(model, X, y)
-      return LibFluxML.iou_loss(yhat, y;
+      return LibFluxML.dice_loss(yhat, y;
                   logits=true,
-                  include_background=false,   # background class is excluded from loss
+                  include_background=false,
                   exclude_voids=true,
                   reduction=:sum,
-                  weights=train_weights,      # background class is excluded from weights
                   device=dev,
       )
 end
