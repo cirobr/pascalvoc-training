@@ -9,12 +9,12 @@ Template for training vision models.
 cd(@__DIR__)
 
 ### arguments
-envpath       = "../"
-cudadevice    = 0
-epochs        = 1
-minibatchsize = 1
-accum_steps   = 1
-debugflag     = true
+# envpath       = "../"
+# cudadevice    = 0
+# epochs        = 1
+# minibatchsize = 1
+# accum_steps   = 1
+# debugflag     = true
 
 
 ### libs
