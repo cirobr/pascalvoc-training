@@ -28,7 +28,7 @@ scripts = [
     # "baseline-gdl_1e-3.jl",
     # "baseline-gdlsq_1e-3.jl",
     # "baseline-dfl_1e-3.jl",
-    "baseline-dflsq_1e-3.jl",
+    # "baseline-dflsq_1e-3.jl",
     # "baseline-dice_loss_1e-3_weights.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
@@ -40,5 +40,5 @@ tblogs = @. "tblogs/" * scriptfolders * "/"
 @info "Batch started"
 @. rm(models, force=true, recursive=true)
 @. rm(tblogs, force=true, recursive=true)
-@. include(scripts)
+# @. include(scripts)
 @info "Batch completed!"

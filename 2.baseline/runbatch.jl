@@ -12,13 +12,13 @@ cudadevice    = 1
 epochs        = 500
 minibatchsize = 6
 accum_steps   = 2
-debugflag     = true
+debugflag     = false
 
 
 ### projects
 scripts = [
-    "baseline-dice_loss_1e-3.jl",
-    "baseline-dicesq_loss_1e-3.jl",
+    "dice_loss_1e-3.jl",
+    "dice_loss_1e-3_weights.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
@@ -29,5 +29,5 @@ tblogs = @. "tblogs/" * scriptfolders * "/"
 @info "Batch started"
 @. rm(models, force=true, recursive=true)
 @. rm(tblogs, force=true, recursive=true)
-@. include(scripts)
+# @. include(scripts)
 @info "Batch completed!"

@@ -328,8 +328,8 @@ function trainLossFunction(model,X,y)
                   logits=true,
                   include_background=false,
                   exclude_voids=true,
-                  square=true,
                   reduction=:sum,
+                  weights=train_weights,
                   device=dev,
       )
 end
