@@ -17,8 +17,8 @@ debugflag     = false
 
 ### projects
 scripts = [
+    "dice_loss_1e-3_augmented.jl",
     "dice_loss_1e-3.jl",
-    "dice_loss_1e-3_weights.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 

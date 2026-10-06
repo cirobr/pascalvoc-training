@@ -9,12 +9,12 @@ Template for training vision models.
 cd(@__DIR__)
 
 ### arguments
-envpath       = "../"
-cudadevice    = 0
-epochs        = 1
-minibatchsize = 1
-accum_steps   = 1
-debugflag     = true
+# envpath       = "../"
+# cudadevice    = 0
+# epochs        = 1
+# minibatchsize = 1
+# accum_steps   = 1
+# debugflag     = true
 
 
 ### libs
@@ -354,7 +354,7 @@ function validLossFunction(model,X,y)
       yhat, y = evaluate_model(model, X, y)
       return LibFluxML.iou_loss(yhat, y;
                   logits=true,
-                  include_background=false,
+                  include_background=true,
                   exclude_voids=true,
                   reduction=:sum,
                   device=dev,

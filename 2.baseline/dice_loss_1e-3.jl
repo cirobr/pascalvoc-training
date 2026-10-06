@@ -337,7 +337,7 @@ function validLossFunction(model,X,y)
       yhat, y = evaluate_model(model, X, y)
       return LibFluxML.iou_loss(yhat, y;
                   logits=true,
-                  include_background=false,
+                  include_background=true,
                   exclude_voids=true,
                   reduction=:sum,
                   device=dev,
