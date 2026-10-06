@@ -29,5 +29,5 @@ tblogs = @. "tblogs/" * scriptfolders * "/"
 @info "Batch started"
 @. rm(models, force=true, recursive=true)
 @. rm(tblogs, force=true, recursive=true)
-# @. include(scripts)
+@. include(scripts)
 @info "Batch completed!"
