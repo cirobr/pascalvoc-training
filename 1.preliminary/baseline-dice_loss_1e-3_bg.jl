@@ -96,21 +96,12 @@ function get_normalization_params(x::AbstractArray{RGB{N0f8}})
       return μs, σs
 end
 
-function compute_class_frequencies(y::AbstractArray)
-      @assert ndims(y) == 4      # HWCN, one-hot encoded
-      C = size(y, 3)
-      @assert C > 1              # at least two classes
-      dims = (1,2,4)
-      fs = sum(y, dims=dims)     # sum over H,W,N
-      return reshape(fs, C)
-end
-
 
 # augmentation pipeline
 intensity_trainpipe = Identity()
-geometric_trainpipe = CenterResizeCrop(framesize)
+geometric_trainpipe = CenterResizeCrop(framesize) |> PinOrigin()
 intensity_validpipe = Identity()
-geometric_validpipe = CenterResizeCrop(framesize)
+geometric_validpipe = CenterResizeCrop(framesize) |> PinOrigin()
 
 
 function data_augmentation(
@@ -134,7 +125,10 @@ function data_augmentation(
       # remove index offsets
       img_unwrap  = OffsetArrays.no_offset_view(img_unwrap)
       mask_unwrap = OffsetArrays.no_offset_view(mask_unwrap)
-      
+
+      # rotation fill is 0; after the -1 shift that is -1. Send it to ignore.
+      mask_unwrap = map(v -> v in classnrs ? v : Int16(255), mask_unwrap)
+
       return img_unwrap, mask_unwrap
 end
 @info "environment OK"
@@ -226,13 +220,15 @@ FLoops.@floop for i in 1:Ntrain
             y -> reshape(y, size(y)..., 1) .|> Bool
       ys[:,:,:,i] = mask
 end
-fs = compute_class_frequencies(ys)
+
+cs = LibFluxML.compute_class_counts(ys)
 xs = nothing
 ys = nothing
 # @assert false
 
+cs = cs[2:end]   # ignore background class
 median_weights, inverse_weights, inverse_squared_weights, inverse_class_weights =
-      LibFluxML.compute_class_weights(fs)
+      LibFluxML.compute_class_weights(cs)
 
 train_weights = median_weights .|> Float32 |> dev
 @info "loss weights OK"
@@ -331,9 +327,9 @@ loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.tra
 # loss functions
 function trainLossFunction(model,X,y)
       yhat, y = evaluate_model(model, X, y)
-      return LibFluxML.iou_loss(yhat, y;
+      return LibFluxML.dice_loss(yhat, y;
                   logits=true,
-                  include_background=false,
+                  include_background=true,
                   exclude_voids=true,
                   reduction=:sum,
                   device=dev,
@@ -344,7 +340,7 @@ function validLossFunction(model,X,y)
       yhat, y = evaluate_model(model, X, y)
       return LibFluxML.iou_loss(yhat, y;
                   logits=true,
-                  include_background=false,
+                  include_background=true,
                   exclude_voids=true,
                   reduction=:sum,
                   device=dev,
@@ -354,7 +350,7 @@ end
 
 
 # optimizer & scheduler
-η       = 5e-3
+η       = 1e-3
 # final_η = 5e-5
 β  = (0.9, 0.999)
 # λ  = 1e-5
