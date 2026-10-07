@@ -23,3 +23,4 @@ cuDNN = "02a925ec-e4fe-4b08-9a7e-0d78e3d38ccd"
 LibCUDA = {rev = "main", url = "git@github.com:cirobr/LibCUDA.jl.git"}
 LibFluxML = {rev = "main", url = "git@github.com:cirobr/LibFluxML.jl.git"}
 PascalVocTools = {rev = "main", url = "git@github.com:cirobr/PascalVocTools.jl.git"}
+TinyMachines = {rev = "v0.6.0", url = "https://github.com/cirobr/TinyMachines.jl.git"}

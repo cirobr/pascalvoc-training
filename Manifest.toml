@@ -2,7 +2,7 @@
 
 julia_version = "1.13.1"
 manifest_format = "2.1"
-project_hash = "056edd97bde68e4e9c89e575fc8d230846e7dbcb"
+project_hash = "323bd6fd8b788022e0a3461fd30e85a28ddc84fb"
 
 [[deps.ADTypes]]
 deps = ["PrecompileTools"]
@@ -62,10 +62,10 @@ version = "0.1.45"
 
 [[deps.Adapt]]
 deps = ["LinearAlgebra"]
-git-tree-sha1 = "7c2c19b5a26e601634bf718490b89d59685f122e"
+git-tree-sha1 = "0d64e8eff17936a5e10e61a9d054e1f716792da9"
 registries = "General"
 uuid = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
-version = "4.7.1"
+version = "4.7.3"
 weakdeps = ["SparseArrays", "StaticArrays"]
 
     [deps.Adapt.extensions]
@@ -153,20 +153,19 @@ version = "1.11.0"
 
 [[deps.Atomix]]
 deps = ["UnsafeAtomics"]
-git-tree-sha1 = "1bbcf97714051f302b3beafab65bcdeb6044c4df"
+git-tree-sha1 = "501c2e38278e3a4b7c104ee7b160b90309fb4630"
 registries = "General"
 uuid = "a9b6321e-bd34-4604-b9c9-b65b8de01458"
-version = "1.2.1"
+version = "1.5.0"
 
     [deps.Atomix.extensions]
-    AtomixCUDAExt = "CUDA"
-    AtomixMetalExt = "Metal"
+    AtomixCUDACoreExt = "CUDACore"
     AtomixOpenCLExt = "OpenCL"
     AtomixoneAPIExt = "oneAPI"
 
     [deps.Atomix.weakdeps]
     CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
-    Metal = "dde4c033-4e86-420c-a63e-0dd931031962"
+    CUDACore = "bd0ed864-bdfe-4181-a5ed-ce625a5fdea2"
     OpenCL = "08131aa3-fb12-5dee-8b74-c09406e224a2"
     oneAPI = "8f75cd03-7ff8-4ecb-9b8f-daf728133b1b"
 
@@ -553,11 +552,11 @@ uuid = "150eb455-5306-5404-9cee-2592286d6298"
 version = "0.6.4"
 
 [[deps.CpuId]]
-deps = ["Markdown"]
-git-tree-sha1 = "fcbb72b032692610bfbdb15018ac16a36cf2e406"
+deps = ["Markdown", "PrecompileTools"]
+git-tree-sha1 = "3a9da6b470fcffe9c8da01fc7ddcb0575c4f8aff"
 registries = "General"
 uuid = "adafc99b-e345-5852-983c-f28acb93d879"
-version = "0.3.1"
+version = "0.3.2"
 
 [[deps.Crayons]]
 git-tree-sha1 = "54b76cbb40d9a0f5368c880725b2f141da77c94f"
@@ -870,16 +869,18 @@ version = "0.2.1"
 
 [[deps.GPUCompiler]]
 deps = ["CompilerCaching", "ExprTools", "InteractiveUtils", "LLVM", "Libdl", "Logging", "PrecompileTools", "Preferences", "REPL", "ScopedValues", "TOML", "Tracy", "UUIDs", "tree_sitter_gcn_jll", "tree_sitter_llvm_jll", "tree_sitter_ptx_jll", "tree_sitter_spirv_jll"]
-git-tree-sha1 = "df0aaa99581473fde47162eca00ce00c6e607903"
+git-tree-sha1 = "2880689e4c6a11643efc81958c5c15f610f27d37"
 registries = "General"
 uuid = "61eb1bfa-7361-4325-ad38-22787b887f55"
-version = "2.12.0"
+version = "2.13.0"
 
     [deps.GPUCompiler.extensions]
+    CthulhuExt = "Cthulhu"
     HighlightsExt = "Highlights"
 
     [deps.GPUCompiler.weakdeps]
     AMDGPU_LLVM_Backend_jll = "cc5c0156-bd05-5a77-8a68-bb0aafb29019"
+    Cthulhu = "f68482b8-f384-11e8-15f7-abe071a5a75f"
     Highlights = "eafb193a-b7ab-5a9e-9068-77385905fa72"
     LLVMDowngrader_jll = "f52de702-fb25-5922-94ba-81dd59b07444"
     NVPTX_LLVM_Backend_jll = "ef6e0fe3-e6ef-59c0-bde6-4989574699e0"
@@ -1304,10 +1305,10 @@ version = "0.2.4"
 
 [[deps.KernelAbstractions]]
 deps = ["Adapt", "Atomix", "InteractiveUtils", "MacroTools", "PrecompileTools", "Requires", "StaticArrays", "UUIDs"]
-git-tree-sha1 = "920671fc8e3be4daf278442bf0bd5cfb46ebac48"
+git-tree-sha1 = "0d0172d662154a2d8e0150c265e75579029f8baf"
 registries = "General"
 uuid = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
-version = "0.9.43"
+version = "0.9.44"
 weakdeps = ["EnzymeCore", "LinearAlgebra", "SparseArrays"]
 
     [deps.KernelAbstractions.extensions]
@@ -1375,10 +1376,10 @@ version = "0.1.17"
 
 [[deps.LazyArrays]]
 deps = ["ArrayLayouts", "FillArrays", "LinearAlgebra", "MacroTools", "SparseArrays"]
-git-tree-sha1 = "e847b3bb1d79e6fc44ee46733e24b98534b74fb1"
+git-tree-sha1 = "0e23f0122a89bb7c0dc96d48e5d2b49baa7a6f39"
 registries = "General"
 uuid = "5078a376-72f3-5289-bfd5-ec5146d43c02"
-version = "2.14.2"
+version = "2.14.3"
 
     [deps.LazyArrays.extensions]
     LazyArraysBandedMatricesExt = "BandedMatrices"
@@ -1695,10 +1696,10 @@ version = "6.4.2"
 
 [[deps.NVPTX_LLVM_Backend_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Zlib_jll"]
-git-tree-sha1 = "ee26fcd4b15f85ecf73b7219e350d51b0ee7bcf4"
+git-tree-sha1 = "4e4913b46c28b0e09ecd11a357fb2b8632504d27"
 registries = "General"
 uuid = "ef6e0fe3-e6ef-59c0-bde6-4989574699e0"
-version = "23.1.2+0"
+version = "23.1.2+1"
 
 [[deps.NVTX]]
 deps = ["JuliaNVTXCallbacks_jll", "Libdl", "NVTX_jll"]
@@ -1888,11 +1889,11 @@ version = "3.0.0"
 
 [[deps.PascalVocTools]]
 deps = ["DataStructures"]
-git-tree-sha1 = "529972a70d9d0eeadb8b6aebf0b798c6974b2182"
+git-tree-sha1 = "79486c087439672330c087bda8b858edcc6b6a12"
 repo-rev = "main"
 repo-url = "git@github.com:cirobr/PascalVocTools.jl.git"
 uuid = "3fdd8fd9-3429-41df-93e4-b1e51c23000a"
-version = "0.0.1"
+version = "0.0.2"
 
 [[deps.Pkg]]
 deps = ["Artifacts", "Dates", "Downloads", "FileWatching", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "Random", "SHA", "TOML", "Tar", "UUIDs", "Zstd_jll", "p7zip_jll"]
@@ -2484,10 +2485,11 @@ version = "0.5.0"
 
 [[deps.TinyMachines]]
 deps = ["Flux"]
-git-tree-sha1 = "73b8768175a37066ff3bc9a9520674c1b8419e5f"
-registries = "General"
+git-tree-sha1 = "4acff3d1e36df67475edfba0920068b6f852998e"
+repo-rev = "v0.6.0"
+repo-url = "https://github.com/cirobr/TinyMachines.jl.git"
 uuid = "5d0fdf5f-995e-4f1b-a9e8-363392c4fe32"
-version = "0.5.2"
+version = "0.6.0"
 
 [[deps.Tracy]]
 deps = ["ExprTools", "LibTracyClient_jll", "Libdl"]
@@ -2547,14 +2549,15 @@ uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 version = "1.11.0"
 
 [[deps.UnsafeAtomics]]
-git-tree-sha1 = "9b053eb4a4128ff62f4392c2d743f25f6ed7559b"
+deps = ["LLVM"]
+git-tree-sha1 = "74ac5e0e702972da953ffc981094617070be582d"
 registries = "General"
 uuid = "013be700-e6cd-48c3-b4a1-df204f14c38f"
-version = "0.3.4"
-weakdeps = ["LLVM"]
+version = "0.4.0"
+weakdeps = ["GPUCompiler"]
 
     [deps.UnsafeAtomics.extensions]
-    UnsafeAtomicsLLVM = ["LLVM"]
+    UnsafeAtomicsGPUCompilerExt = "GPUCompiler"
 
 [[deps.VectorizationBase]]
 deps = ["ArrayInterface", "CPUSummary", "HostCPUFeatures", "IfElse", "LayoutPointers", "Libdl", "LinearAlgebra", "SIMDTypes", "Static", "StaticArrayInterface"]
@@ -2730,10 +2733,10 @@ version = "5.15.0+0"
 
 [[deps.libpng_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Zlib_jll"]
-git-tree-sha1 = "32781be40fe86735af02eae0dd22754e4b5f779d"
+git-tree-sha1 = "1fcd6cf05d23adab0b5ffc496d020537215751dc"
 registries = "General"
 uuid = "b53b4c65-9356-5827-b1ea-8c7a1a84506f"
-version = "1.6.59+0"
+version = "1.6.59+1"
 
 [[deps.libsixel_jll]]
 deps = ["Artifacts", "JLLWrappers", "JpegTurbo_jll", "Libdl", "libpng_jll"]

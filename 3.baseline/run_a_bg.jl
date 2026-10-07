@@ -62,7 +62,7 @@ LibCUDA.cleangpu()
 # dataset constants
 const imagesize = (500,500)   # original size
 const framesize = (256,256)   # resized size
-const classnrs  = pv.class_numbers[1:end-1]   # 0:20
+const classnrs  = pv.class_numbers   # 0:20
 const C = length(classnrs)
 
 
