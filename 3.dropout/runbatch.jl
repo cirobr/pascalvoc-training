@@ -1,0 +1,35 @@
+"""
+Author: cirobr@GitHub
+Date: 18-Sep-2026
+
+Template for executing multiple scripts in series.
+    * Each project lives on a separate folder.
+"""
+
+### arguments
+envpath       = "../"
+cudadevice    = 1
+epochs        = 30
+minibatchsize = 6
+accum_steps   = 2
+debugflag     = true
+
+
+### projects
+scripts = [
+    "run_a.jl",
+    "run_b.jl",
+    "run_c.jl",
+    "baseline.jl",
+]
+scriptfolders = [s[1:end-3] for s in scripts]
+
+# cleanup folders
+models = @. "models/" * scriptfolders * "/"
+tblogs = @. "tblogs/" * scriptfolders * "/"
+
+@info "Batch started"
+@. rm(models, force=true, recursive=true)
+@. rm(tblogs, force=true, recursive=true)
+@. include(scripts)
+@info "Batch completed!"
