@@ -17,9 +17,9 @@ debugflag     = false
 
 ### projects
 scripts = [
-    "run_a.jl",
-    "run_b.jl",
-    "run_c.jl",
+    # "run_a.jl",
+    # "run_b.jl",
+    # "run_c.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
@@ -30,5 +30,5 @@ tblogs = @. "tblogs/" * scriptfolders * "/"
 @info "Batch started"
 @. rm(models, force=true, recursive=true)
 @. rm(tblogs, force=true, recursive=true)
-@. include(scripts)
+# @. include(scripts)
 @info "Batch completed!"
