@@ -17,8 +17,10 @@ debugflag     = false
 
 ### projects
 scripts = [
-    "dice_loss_1e-3_augmented.jl",
-    "dice_loss_1e-3.jl",
+    # "dice_loss_1e-3_augmented.jl",
+    # "dice_loss_1e-3.jl",
+    "run_a_nobg.jl",
+    "run_a_bg.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 

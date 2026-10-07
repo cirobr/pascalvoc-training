@@ -98,10 +98,24 @@ end
 
 
 # augmentation pipeline
-intensity_trainpipe = Identity()
-geometric_trainpipe = CenterResizeCrop(framesize)
+# intensity_trainpipe = Identity()
+# geometric_trainpipe = CenterResizeCrop(framesize)
+# intensity_validpipe = Identity()
+# geometric_validpipe = CenterResizeCrop(framesize)
+
+intensity_trainpipe =
+    Maybe(AdjustBrightness(0.15), 0.8) |>
+    Maybe(AdjustContrast(0.15), 0.8)
+
+geometric_trainpipe =
+    Maybe(FlipX{2}(), 0.5) |>
+    Maybe(Rotate(8), 0.5) |>          # degrees, uniform in [-8, 8]
+    Zoom((1.0, 1.45)) |>              # scale jitter; default Zoom((1, 1.2)) is weaker
+    RandomCrop(framesize) |>          # Crop(sz, FromRandom())
+    PinOrigin()
+
 intensity_validpipe = Identity()
-geometric_validpipe = CenterResizeCrop(framesize)
+geometric_validpipe = CenterResizeCrop(framesize) |> PinOrigin()
 
 
 function data_augmentation(
@@ -125,7 +139,10 @@ function data_augmentation(
       # remove index offsets
       img_unwrap  = OffsetArrays.no_offset_view(img_unwrap)
       mask_unwrap = OffsetArrays.no_offset_view(mask_unwrap)
-      
+
+      # rotation fill is 0; after the -1 shift that is -1. Send it to ignore.
+      mask_unwrap = map(v -> v in classnrs ? v : Int16(255), mask_unwrap)
+
       return img_unwrap, mask_unwrap
 end
 @info "environment OK"
@@ -350,7 +367,7 @@ end
 η       = 1e-3
 # final_η = 5e-5
 β  = (0.9, 0.999)
-# λ  = 1e-5
+λ  = 1e-5
 # cn = 1.0    # clip norm
 # cg = 1.0    # clip grad
 
@@ -358,8 +375,8 @@ opt = OptimiserChain(
       Flux.AccumGrad(accum_steps),
       # Flux.ClipNorm(cn),
       # Flux.ClipGrad(cg),
-      # Flux.AdamW(η, β, λ),
-      Flux.Adam(η, β),
+      Flux.AdamW(η, β, λ),
+      # Flux.Adam(η, β),
 )
 # opt_mp = Optimisers.MixedPrecision(Float16, opt)
 optimizerState = Flux.setup(opt, model)

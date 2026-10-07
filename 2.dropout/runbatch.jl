@@ -12,7 +12,7 @@ cudadevice    = 1
 epochs        = 30
 minibatchsize = 6
 accum_steps   = 2
-debugflag     = true
+debugflag     = false
 
 
 ### projects
@@ -20,7 +20,6 @@ scripts = [
     "run_a.jl",
     "run_b.jl",
     "run_c.jl",
-    "baseline.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
