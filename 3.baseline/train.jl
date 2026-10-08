@@ -9,12 +9,12 @@ Template for training vision models.
 cd(@__DIR__)
 
 ### arguments
-# envpath       = "../"
-# cudadevice    = 0
-# epochs        = 500
-# minibatchsize = 6
-# accum_steps   = 2
-# debugflag     = false
+envpath       = "../"
+cudadevice    = 0
+epochs        = 500
+minibatchsize = 6
+accum_steps   = 2
+debugflag     = false
 
 
 ### libs
@@ -112,11 +112,21 @@ geometric_validpipe = CenterResizeCrop(framesize) |> PinOrigin()
 
 const short_sides = 320:500
 const crop_size = framesize[1]
-const center_prob = 0.75          # remaining draws are uniform crops
+const center_prob = 0.5           # of the object-crop half: class-center vs uniform
+const object_crop_prob = 0.5      # other half is the validation center resize
 const flip_prob = 0.5
 
 function hflip(img, mask)
       return reverse(img; dims=2), reverse(mask; dims=2)
+end
+
+function valid_geometry(img, mask)
+      img_wrap = Image(img)
+      mask_wrap = MaskMulti((mask .+ 1), 1:256)
+      img_wrap, mask_wrap = apply(geometric_validpipe, (img_wrap, mask_wrap))
+      img = OffsetArrays.no_offset_view(img_wrap.data) .|> RGB{N0f8}
+      mask = OffsetArrays.no_offset_view((mask_wrap.data .- 1) .|> Int16)
+      return img, mask
 end
 
 function data_augmentation(
@@ -130,22 +140,22 @@ function data_augmentation(
             if rand() < flip_prob
                   img, mask = hflip(img, mask)
             end
-            img, mask = augment(img, mask;
-                  short_sides=short_sides,
-                  crop=crop_size,
-                  center=rand() < center_prob,
-            )
+            if rand() < object_crop_prob
+                  img, mask = augment(img, mask;
+                        short_sides=short_sides,
+                        crop=crop_size,
+                        center=rand() < center_prob,
+                  )
+            else
+                  img, mask = valid_geometry(img, mask)
+            end
             img_wrap = apply(intensity_tfm, Image(img))
             img = OffsetArrays.no_offset_view(img_wrap.data) .|> RGB{N0f8}
             mask = map(v -> v in classnrs ? oftype(v, v) : Int16(255), mask)
             return img, mask
       end
 
-      img_wrap = Image(img)
-      mask_wrap = MaskMulti((mask .+ 1), 1:256)
-      img_wrap, mask_wrap = apply(geometric_tfm, (img_wrap, mask_wrap))
-      img = OffsetArrays.no_offset_view(img_wrap.data) .|> RGB{N0f8}
-      mask = OffsetArrays.no_offset_view((mask_wrap.data .- 1) .|> Int16)
+      img, mask = valid_geometry(img, mask)
       mask = map(v -> v in classnrs ? v : Int16(255), mask)
       return img, mask
 end
