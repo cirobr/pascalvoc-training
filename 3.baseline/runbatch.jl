@@ -12,15 +12,12 @@ cudadevice    = 1
 epochs        = 500
 minibatchsize = 6
 accum_steps   = 2
-debugflag     = true
+debugflag     = false
 
 
 ### projects
 scripts = [
-    # "dice_loss_1e-3_augmented.jl",
-    # "dice_loss_1e-3.jl",
-    "run_a_nobg.jl",
-    "run_a_bg.jl",
+    # "run_a_nobg.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
