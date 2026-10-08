@@ -1,5 +1,3 @@
-using Images
-
 const IGNORE = 0xff
 
 """
@@ -15,7 +13,10 @@ function scale_jitter(img::AbstractMatrix, mask::AbstractMatrix{<:Integer}, shor
     scale = short_side / min(h, w)
     nh, nw = max(1, round(Int, h * scale)), max(1, round(Int, w * scale))
     img2 = imresize(img, (nh, nw))
-    mask2 = imresize(mask, (nh, nw); method=Images.Nearest())
+    # Constant is nearest-neighbor, but imresize still returns a float array.
+    # Crop methods are typed on Integer, so round back to the source eltype.
+    resized = imresize(mask, (nh, nw); method=BSpline(Constant()))
+    mask2 = round.(eltype(mask), resized)
     return img2, mask2
 end
 
