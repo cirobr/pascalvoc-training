@@ -16,7 +16,7 @@ class ids. `MaskMulti` is warped with nearest neighbor.
 """
 
 using DataAugmentation
-import DataAugmentation: apply, getrandstate, itemdata
+import DataAugmentation: Sequence, MaskMulti, apply, getrandstate, itemdata
 
 const VOC_IGNORE = 0xff
 
