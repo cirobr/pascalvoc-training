@@ -10,11 +10,11 @@ cd(@__DIR__)
 
 ### arguments
 envpath       = "../"
-cudadevice    = 0
+cudadevice    = 1
 epochs        = 30
 minibatchsize = 6
 accum_steps   = 2
-debugflag     = true
+debugflag     = false
 
 
 ### libs
@@ -35,7 +35,7 @@ end
 
 using TinyMachines
 using Images
-using DataAugmentation
+# using DataAugmentation
 using OffsetArrays
 using DataFrames
 using MLUtils
