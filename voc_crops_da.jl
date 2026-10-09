@@ -106,27 +106,48 @@ function apply(
 end
 
 
+"""
+    _foreground_center(mask, ignore)
+
+    Return the coordinates of a random foreground pixel in `mask`, excluding background (0) and `ignore`.
+Returns `nothing` if no foreground pixels are present.
+"""
 function _foreground_center(mask, ignore, background)
+    # check for foreground classes in the mask, excluding background (0) and ignore
     present = Int[]
     for c in unique(mask)
         (c == background || c == ignore) && continue
         push!(present, Int(c))
     end
+    # if no foreground classes are present, return nothing
     isempty(present) && return nothing, nothing
+
+    # select a random class and then a random pixel of that class
     cls = present[rand(1:length(present))]
     idx = findall(==(cls), mask)
     p = idx[rand(1:length(idx))]
+
+    # return the coordinates of the selected pixel
     return p[1], p[2]
 end
 
+
+"""
+    _crop_pair(img, mask, cy, cx, sz, ignore)
+
+Crop a window of size `sz` centered on `(cy, cx)`.
+If the window hangs off the image, the overhang is padded (black for the image, `ignore` for the mask).
+"""
 function _crop_pair(img, mask, cy, cx, sz, ignore)
     crop = sz[1]
-    top = cy - crop ÷ 2
+    top  = cy - crop ÷ 2
     left = cx - crop ÷ 2
-    src_img = _plain(itemdata(img))
+
+    src_img  = _plain(itemdata(img))
     src_mask = _plain(itemdata(mask))
-    out_img = fill(zero(eltype(src_img)), sz)
+    out_img  = fill(zero(eltype(src_img)), sz)
     out_mask = fill(oftype(src_mask[begin], ignore), sz)
+    
     h, w = size(src_mask)
     for j in 1:crop, i in 1:crop
         y = top + i - 1
@@ -136,6 +157,7 @@ function _crop_pair(img, mask, cy, cx, sz, ignore)
             out_mask[i, j] = src_mask[y, x]
         end
     end
+
     return Image(out_img), MaskMulti(out_mask, mask.classes)
 end
 
