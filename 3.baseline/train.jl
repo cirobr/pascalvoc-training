@@ -11,10 +11,10 @@ cd(@__DIR__)
 ### arguments
 envpath       = "../"
 cudadevice    = 0
-epochs        = 500
+epochs        = 30
 minibatchsize = 6
 accum_steps   = 2
-debugflag     = false
+debugflag     = true
 
 
 ### libs
@@ -99,16 +99,11 @@ end
 
 
 # augmentation
-# Train: mild scale jitter, then a 256 crop centered on a foreground class.
-# RandomCrop on a 500 frame mostly sees background, which is consistent with mIoU ~ 0.01.
-# Val stays a deterministic center resize so the metric is comparable across runs.
 include("../voc_crops.jl")
 
 intensity_trainpipe =
     Maybe(AdjustBrightness(0.15), 0.8) |>
     Maybe(AdjustContrast(0.15), 0.8)
-intensity_validpipe = Identity()
-geometric_validpipe = CenterResizeCrop(framesize) |> PinOrigin()
 
 const short_sides = 320:500
 const crop_size = framesize[1]
@@ -119,6 +114,9 @@ const flip_prob = 0.5
 function hflip(img, mask)
       return reverse(img; dims=2), reverse(mask; dims=2)
 end
+
+intensity_validpipe = Identity()
+geometric_validpipe = CenterResizeCrop(framesize) |> PinOrigin()
 
 function valid_geometry(img, mask)
       img_wrap = Image(img)
@@ -374,7 +372,7 @@ function validLossFunction(model,X,y)
       yhat, y = evaluate_model(model, X, y)
       return LibFluxML.iou_loss(yhat, y;
                   logits=true,
-                  include_background=true,
+                  include_background=false,
                   exclude_voids=true,
                   reduction=:sum,
                   device=dev,
