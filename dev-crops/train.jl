@@ -9,12 +9,12 @@ Template for training vision models.
 cd(@__DIR__)
 
 ### arguments
-# envpath       = "../"
-# cudadevice    = 1
-# epochs        = 30
-# minibatchsize = 6
-# accum_steps   = 2
-# debugflag     = false
+envpath       = "../"
+cudadevice    = 0
+epochs        = 500
+minibatchsize = 6
+accum_steps   = 2
+debugflag     = true
 
 
 ### libs
@@ -72,11 +72,10 @@ function get_image(path)
 end
 
 # Pascal VOC mask PNG to integers conversion
-pascal_ids(mask::AbstractMatrix{<:Integer}) = mask   # dummy conversion
-pascal_ids(mask) = mask.index
+to_ids(mask) = mask.index
 
 function get_mask(path)
-      return Images.load(expanduser(path)) |> mask->pascal_ids(mask) .|> Int16
+      return Images.load(expanduser(path)) |> mask->to_ids(mask) .|> Int16
 end
 
 function convert_image2tensor(img::AbstractMatrix{RGB{N0f8}})
@@ -114,7 +113,6 @@ random_crop = RandomCentricCrop(
 class_crop = ClassCentricCrop(
       short_sides = short_sides,
       crop = crop_size,
-      ids = pascal_ids,
 )
 
 intensity_trainpipe =
@@ -123,22 +121,20 @@ intensity_trainpipe =
 
 geometric_trainpipe =
       Maybe(FlipX{2}(), 0.5) |>
-      OneOf([Identity(), random_crop, class_crop], [0.2, 0.3, 0.5]) |>
-      CenterCrop(framesize) |>
-      PinOrigin()
+      OneOf([CenterResizeCrop(framesize), random_crop, class_crop], [0.1, 0.3, 0.6])
 
 intensity_validpipe = Identity()
-geometric_validpipe = CenterResizeCrop(framesize) |> PinOrigin()
+geometric_validpipe = CenterResizeCrop(framesize)
 
 
-function wrap_pair(img, mask, ids::Function)
-      return Image(img), MaskMulti(ids(mask) .+ 1, 1:256)
+function wrap_pair(img, mask)
+      return Image(img), MaskMulti(mask .+ 1, 1:256)
 end
 
 function unwrap_pair(img_wrap, mask_wrap)
-      img = OffsetArrays.no_offset_view(img_wrap.data) .|> RGB{N0f8}
+      img  = OffsetArrays.no_offset_view(img_wrap.data) .|> RGB{N0f8}
       mask = OffsetArrays.no_offset_view((mask_wrap.data .- 1) .|> Int16)
-      mask = map(v -> v in classnrs ? v : Int16(255), mask)
+      mask = map(v -> v in classnrs ? Int16(v) : Int16(255), mask)
       return img, mask
 end
 
@@ -148,14 +144,11 @@ function data_augmentation(
       intensity_tfm,
       geometric_tfm
 )
-      img_wrap, mask_wrap = wrap_pair(img, mask, pascal_ids)
-
-      # augment
+      img_wrap, mask_wrap = wrap_pair(img, mask)
       img_wrap = apply(intensity_tfm, img_wrap)   # intensity (img only)
       img_wrap, mask_wrap = apply(geometric_tfm, (img_wrap, mask_wrap))   # geometric (img, mask)
 
-      img_unwrap, mask_unwrap = unwrap_pair(img_wrap, mask_wrap)
-      return img_unwrap, mask_unwrap
+      return unwrap_pair(img_wrap, mask_wrap)   # (aug img, aug mask)
 end
 @info "environment OK"
 

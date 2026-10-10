@@ -1,13 +1,7 @@
 """
-Projective crops with a dataset-supplied mask conversion.
+Customized projective crops.
 
-Pascal VOC and Cityscapes both store the mask as an image, but the class ids
-are not in the same place. The crop does not know that. The caller passes
-`ids`, and only that function changes between datasets.
-
-    pascal(mask) = mask.index
-    cityscapes(mask) = mask.index          # or whatever that loader exposes
-    already_ids(mask) = mask
+The caller supplies an image and a class-id matrix.
 
 The window is `Crop(sz, FromRandom())`. Its `randstate` is a fractional
 offset, shared by the photo (`Image`) and the mask (`MaskMulti`). The mask is
@@ -15,7 +9,7 @@ not wrapped as `Image`: a projective warp of an `Image` interpolates and mixes
 class ids. `MaskMulti` is warped with nearest neighbor.
 """
 
-# using DataAugmentation
+using DataAugmentation
 import DataAugmentation: apply, getrandstate, itemdata, OneOf
 
 const IGNORE = 0xff
@@ -35,55 +29,54 @@ function crop_offsets(len::Integer, crop::Integer, center::Integer)
     return (top - 1) / slack
 end
 
-function crop_offsets(ids::AbstractMatrix{<:Integer}, crop::NTuple{2,Integer}, cy::Integer, cx::Integer)
+function crop_offsets(labels::AbstractMatrix{<:Integer}, crop::NTuple{2,Integer}, cy::Integer, cx::Integer)
     return (
-        crop_offsets(size(ids, 1), crop[1], cy),
-        crop_offsets(size(ids, 2), crop[2], cx),
+        crop_offsets(size(labels, 1), crop[1], cy),
+        crop_offsets(size(labels, 2), crop[2], cx),
     )
 end
 
 
 """
-    class_center(ids; ignore=0xff, background=0) -> (cy, cx) or nothing
+    class_center(labels; ignore=0xff, background=0) -> (cy, cx) or nothing
 
-`ids` is already the class-id matrix. Draw a class uniformly, excluding
+`labels` is the class-id matrix. Draw a class uniformly, excluding
 background and void, then draw a pixel of that class.
 """
-function class_center(ids::AbstractMatrix{<:Integer}; ignore::Integer = IGNORE, background::Integer = 0)
+function class_center(labels::AbstractMatrix{<:Integer}; ignore::Integer = IGNORE, background::Integer = 0)
     present = Int[]
-    for c in unique(ids)
+    for c in unique(labels)
         (c == background || c == ignore) && continue
         push!(present, Int(c))
     end
     isempty(present) && return nothing
     cls = present[rand(1:length(present))]
-    idx = findall(==(cls), ids)
+    idx = findall(==(cls), labels)
     p = idx[rand(1:length(idx))]
     return p[1], p[2]
 end
 
 
 """
-    class_center_state(ids, crop; kwargs...) -> NTuple{2,Float64}
+    class_center_state(labels, crop; kwargs...) -> NTuple{2,Float64}
 
 `randstate` for `Crop(crop, FromRandom())`. Falls back to a uniform offset
-when the id matrix has no foreground.
+when the label matrix has no foreground.
 """
-function class_center_state(ids::AbstractMatrix{<:Integer}, crop::NTuple{2,Integer}; kwargs...)
-    hit = class_center(ids; kwargs...)
+function class_center_state(labels::AbstractMatrix{<:Integer}, crop::NTuple{2,Integer}; kwargs...)
+    hit = class_center(labels; kwargs...)
     hit === nothing && return (rand(), rand())
-    return crop_offsets(ids, crop, hit[1], hit[2])
+    return crop_offsets(labels, crop, hit[1], hit[2])
 end
-class_center_state(ids, crop::Integer; kwargs...) = class_center_state(ids, (crop, crop); kwargs...)
+class_center_state(labels, crop::Integer; kwargs...) = class_center_state(labels, (crop, crop); kwargs...)
 
 
 
-struct ClassCentricCrop{F} <: Transform
+struct ClassCentricCrop <: Transform
     sides::Vector{Int}
     crop::NTuple{2,Int}
     ignore::Int
     background::Int
-    ids::F
 end
 
 struct RandomCentricCrop <: Transform
@@ -92,23 +85,22 @@ struct RandomCentricCrop <: Transform
 end
 
 """
-    ClassCentricCrop(; short_sides=320:500, crop=256, ids=mask -> mask.index)
+    ClassCentricCrop(; short_sides=320:500, crop=256)
 
-Scale, then a class-center `Crop`. No foreground falls back to a uniform offset.
+Scale, then a class-center `Crop`. The mask item already holds class ids.
+No foreground falls back to a uniform offset.
 """
 function ClassCentricCrop(;
         short_sides = 320:500,
         crop::Integer = 256,
         ignore::Integer = IGNORE,
         background::Integer = 0,
-        ids::Function,
 )
     return ClassCentricCrop(
         collect(Int, short_sides),
         (Int(crop), Int(crop)),
         Int(ignore),
         Int(background),
-        ids,
     )
 end
 
@@ -138,8 +130,8 @@ end
 
 function apply(tfm::ClassCentricCrop, items::Tuple{Image,MaskMulti}; randstate = nothing)
     scaled = _scaled(items, tfm.sides)
-    raw = itemdata(scaled[2]) .- 1
-    offsets = class_center_state(raw, tfm.crop; ignore = tfm.ignore, background = tfm.background)
+    labels = itemdata(scaled[2]) .- 1
+    offsets = class_center_state(labels, tfm.crop; ignore = tfm.ignore, background = tfm.background)
     return _crop(scaled, tfm.crop, offsets)
 end
 
