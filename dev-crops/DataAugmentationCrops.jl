@@ -21,14 +21,6 @@ import DataAugmentation: apply, getrandstate, itemdata, OneOf
 const IGNORE = 0xff
 
 """
-    mask_ids(mask, ids)
-
-`ids` converts the dataset mask image to a class-id matrix.
-"""
-mask_ids(mask, ids::Function) = ids(mask)
-
-
-"""
     crop_offsets(len, crop, center)
 
 Fractional offset consumed by `Crop(sz, FromRandom())`.
@@ -103,14 +95,13 @@ end
     ClassCentricCrop(; short_sides=320:500, crop=256, ids=mask -> mask.index)
 
 Scale, then a class-center `Crop`. No foreground falls back to a uniform offset.
-No probability: select it with `OneOf` or `Maybe` in the pipeline.
 """
 function ClassCentricCrop(;
         short_sides = 320:500,
         crop::Integer = 256,
         ignore::Integer = IGNORE,
         background::Integer = 0,
-        ids::Function = mask -> mask.index,
+        ids::Function,
 )
     return ClassCentricCrop(
         collect(Int, short_sides),

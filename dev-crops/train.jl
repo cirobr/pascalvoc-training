@@ -71,8 +71,12 @@ function get_image(path)
       return Images.load(expanduser(path)) .|> RGB{N0f8}        # original size
 end
 
+# Pascal VOC mask PNG to integers conversion
+pascal_ids(mask::AbstractMatrix{<:Integer}) = mask   # dummy conversion
+pascal_ids(mask) = mask.index
+
 function get_mask(path)
-      return Images.load(expanduser(path)) |> mask -> mask.index .|> Int16
+      return Images.load(expanduser(path)) |> mask->pascal_ids(mask) .|> Int16
 end
 
 function convert_image2tensor(img::AbstractMatrix{RGB{N0f8}})
@@ -100,22 +104,17 @@ end
 # augmentation
 include("DataAugmentationCrops.jl")
 
-const flip_prob = 0.5             # probability of horizontal flip
 const short_sides = 320:500
 const crop_size = framesize[1]
 
-# Pascal VOC indexed PNG. An integer matrix is already ids (normalization dummy).
-pascal_ids(mask::AbstractMatrix{<:Integer}) = mask
-pascal_ids(mask) = mask.index
-
+random_crop = RandomCentricCrop(
+      short_sides = short_sides,
+      crop = crop_size,
+)
 class_crop = ClassCentricCrop(
       short_sides = short_sides,
       crop = crop_size,
       ids = pascal_ids,
-)
-random_crop = RandomCentricCrop(
-      short_sides = short_sides,
-      crop = crop_size,
 )
 
 intensity_trainpipe =
@@ -124,15 +123,16 @@ intensity_trainpipe =
 
 geometric_trainpipe =
       Maybe(FlipX{2}(), 0.5) |>
-      OneOf([Identity(), random_crop, class_crop], [0.2, 0.5, 0.3]) |>
+      OneOf([Identity(), random_crop, class_crop], [0.2, 0.3, 0.5]) |>
       CenterCrop(framesize) |>
       PinOrigin()
 
 intensity_validpipe = Identity()
 geometric_validpipe = CenterResizeCrop(framesize) |> PinOrigin()
 
+
 function wrap_pair(img, mask, ids::Function)
-      return Image(img), MaskMulti(mask_ids(mask, ids) .+ 1, 1:256)
+      return Image(img), MaskMulti(ids(mask) .+ 1, 1:256)
 end
 
 function unwrap_pair(img_wrap, mask_wrap)
@@ -141,18 +141,6 @@ function unwrap_pair(img_wrap, mask_wrap)
       mask = map(v -> v in classnrs ? v : Int16(255), mask)
       return img, mask
 end
-
-# function valid_geometry(img, mask)
-#       img_wrap, mask_wrap = wrap_pair(img, mask, pascal_ids)
-#       img_wrap, mask_wrap = apply(geometric_validpipe, (img_wrap, mask_wrap))
-#       return unwrap_pair(img_wrap, mask_wrap)
-# end
-
-# function object_geometry(img, mask)
-#       img_wrap, mask_wrap = wrap_pair(img, mask, pascal_ids)
-#       img_wrap, mask_wrap = apply(geometric_trainpipe, (img_wrap, mask_wrap))
-#       return unwrap_pair(img_wrap, mask_wrap)
-# end
 
 function data_augmentation(
       img::AbstractArray{RGB{N0f8}},
@@ -225,7 +213,6 @@ FLoops.@floop for i in 1:Ntrain
       img, mask = data_augmentation(img, mask;
                         intensity_tfm=intensity_validpipe,
                         geometric_tfm=geometric_validpipe,
-                        # train=false,
       )
       Xs[:,:,i] = img
 end
@@ -257,7 +244,7 @@ FLoops.@floop for i in 1:Ntrain
 
       mask = LibFluxML.onehot_fast(mask, classnrs; ignore_index=255) |>
             y -> reshape(y, size(y)..., 1) .|> Bool
-      # ys[:,:,:,i] = mask
+      ys[:,:,:,i] = mask
 end
 
 cs = LibFluxML.compute_class_counts(ys)
@@ -278,7 +265,6 @@ struct CityscapesDataset
     df::DataFrame
     intensity_tfm
     geometric_tfm
-    train::Bool
 end
 
 # Interface
@@ -310,14 +296,12 @@ end
 train_dataset = CityscapesDataset(dftrain,
                               intensity_trainpipe,
                               geometric_trainpipe,
-                              true,
 )
 
 # Validation dataset (light/no augmentation)
 valid_dataset = CityscapesDataset(dfvalid,
                               intensity_validpipe,
                               geometric_validpipe,
-                              false,
 )
 
 # data loaders
