@@ -16,9 +16,9 @@ class ids. `MaskMulti` is warped with nearest neighbor.
 """
 
 using DataAugmentation
-import DataAugmentation: Sequence, MaskMulti, apply, getrandstate, itemdata
+import DataAugmentation: apply, getrandstate, itemdata, OneOf
 
-const VOC_IGNORE = 0xff
+const IGNORE = 0xff
 
 """
     mask_ids(mask, ids)
@@ -57,7 +57,7 @@ end
 `ids` is already the class-id matrix. Draw a class uniformly, excluding
 background and void, then draw a pixel of that class.
 """
-function class_center(ids::AbstractMatrix{<:Integer}; ignore::Integer = VOC_IGNORE, background::Integer = 0)
+function class_center(ids::AbstractMatrix{<:Integer}; ignore::Integer = IGNORE, background::Integer = 0)
     present = Int[]
     for c in unique(ids)
         (c == background || c == ignore) && continue
@@ -85,68 +85,84 @@ end
 class_center_state(ids, crop::Integer; kwargs...) = class_center_state(ids, (crop, crop); kwargs...)
 
 
-struct VocProjectiveCrop{F} <: Transform
+
+struct ClassCentricCrop{F} <: Transform
     sides::Vector{Int}
     crop::NTuple{2,Int}
-    center_prob::Float64
     ignore::Int
     background::Int
     ids::F
 end
 
-"""
-    VocProjectiveCrop(; ids = mask -> mask.index, short_sides=320:500, crop=256, center_prob=0.5)
+struct RandomCentricCrop <: Transform
+    sides::Vector{Int}
+    crop::NTuple{2,Int}
+end
 
-`ids` is the only dataset-specific piece. The default is the Pascal VOC
-indexed image. A Cityscapes loader passes its own function.
 """
-function VocProjectiveCrop(;
+    ClassCentricCrop(; short_sides=320:500, crop=256, ids=mask -> mask.index)
+
+Scale, then a class-center `Crop`. No foreground falls back to a uniform offset.
+No probability: select it with `OneOf` or `Maybe` in the pipeline.
+"""
+function ClassCentricCrop(;
         short_sides = 320:500,
         crop::Integer = 256,
-        center_prob::Real = 0.5,
-        ignore::Integer = VOC_IGNORE,
+        ignore::Integer = IGNORE,
         background::Integer = 0,
         ids::Function = mask -> mask.index,
 )
-    return VocProjectiveCrop(
+    return ClassCentricCrop(
         collect(Int, short_sides),
         (Int(crop), Int(crop)),
-        Float64(center_prob),
         Int(ignore),
         Int(background),
         ids,
     )
 end
 
-function apply(tfm::VocProjectiveCrop, items::Tuple{Image,MaskMulti}; randstate = nothing)
-    side = tfm.sides[rand(1:length(tfm.sides))]
-    scaled = (
-        apply(ScaleKeepAspect((side, side)), items[1]),
-        apply(ScaleKeepAspect((side, side)), items[2]),
-    )
-    # Undo the MaskMulti shift. Class ids are whatever `ids` produced.
-    raw = itemdata(scaled[2]) .- 1
-    offsets = if rand() < tfm.center_prob
-        class_center_state(raw, tfm.crop; ignore = tfm.ignore, background = tfm.background)
-    else
-        (rand(), rand())
-    end
-    crop = Crop(tfm.crop, DataAugmentation.FromRandom())
+"""
+    RandomCentricCrop(; short_sides=320:500, crop=256)
+
+Scale, then a uniform `Crop(sz, FromRandom())`.
+"""
+function RandomCentricCrop(; short_sides = 320:500, crop::Integer = 256)
+    return RandomCentricCrop(collect(Int, short_sides), (Int(crop), Int(crop)))
+end
+
+function _scaled(items, sides)
+    side = sides[rand(1:length(sides))]
+    scale = ScaleKeepAspect((side, side))
+    return apply(scale, items[1]), apply(scale, items[2])
+end
+
+function _crop(items, crop, offsets)
+    window = Crop(crop, DataAugmentation.FromRandom())
     cropped = (
-        apply(crop, scaled[1]; randstate = offsets),
-        apply(crop, scaled[2]; randstate = offsets),
+        apply(window, items[1]; randstate = offsets),
+        apply(window, items[2]; randstate = offsets),
     )
     return apply(PinOrigin(), cropped[1]), apply(PinOrigin(), cropped[2])
 end
 
-function apply(tfm::Sequence, items::Tuple{Image,MaskMulti}; randstate = nothing)
-    state = randstate === nothing ? getrandstate(tfm) : randstate
-    for (t, r) in zip(tfm.ts, state)
-        items = apply(t, items; randstate = r)
-    end
-    return items
+function apply(tfm::ClassCentricCrop, items::Tuple{Image,MaskMulti}; randstate = nothing)
+    scaled = _scaled(items, tfm.sides)
+    raw = itemdata(scaled[2]) .- 1
+    offsets = class_center_state(raw, tfm.crop; ignore = tfm.ignore, background = tfm.background)
+    return _crop(scaled, tfm.crop, offsets)
 end
 
-function apply(tfm::VocProjectiveCrop, item::Item; randstate = nothing)
-    error("VocProjectiveCrop must be applied to an (Image, MaskMulti) pair")
+function apply(tfm::RandomCentricCrop, items::Tuple{Image,MaskMulti}; randstate = nothing)
+    return _crop(_scaled(items, tfm.sides), tfm.crop, (rand(), rand()))
+end
+
+function apply(tfm::Union{ClassCentricCrop,RandomCentricCrop}, item::Item; randstate = nothing)
+    error("apply the crop to an (Image, MaskMulti) pair")
+end
+
+# Sequence passes the pair to each step. Maybe is an OneOf, and the default
+# tuple method would then apply the chosen crop to the image alone.
+function apply(tfm::OneOf, items::Tuple{Image,MaskMulti}; randstate = getrandstate(tfm))
+    i, inner = randstate
+    return apply(tfm.tfms[i], items; randstate = inner)
 end

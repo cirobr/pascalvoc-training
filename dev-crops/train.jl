@@ -11,7 +11,7 @@ cd(@__DIR__)
 ### arguments
 envpath       = "../"
 cudadevice    = 0
-epochs        = 30
+epochs        = 500
 minibatchsize = 6
 accum_steps   = 2
 debugflag     = true
@@ -98,74 +98,76 @@ end
 
 
 # augmentation
-include("../voc_crops_da.jl")
-
-intensity_trainpipe =
-    Maybe(AdjustBrightness(0.15), 0.8) |>
-    Maybe(AdjustContrast(0.15), 0.8)
+include("DataAugmentationCrops.jl")
 
 const flip_prob = 0.5             # probability of horizontal flip
 const short_sides = 320:500
 const crop_size = framesize[1]
-const center_prob = 0.5           # of the object-crop half: class-center vs uniform
-const object_crop_prob = 0.5      # other half is the validation center resize
 
-geometric_trainpipe = VocCrop(
-    short_sides = short_sides,
-    crop = crop_size,
-    center_prob = center_prob,
+# Pascal VOC indexed PNG. An integer matrix is already ids (normalization dummy).
+pascal_ids(mask::AbstractMatrix{<:Integer}) = mask
+pascal_ids(mask) = mask.index
+
+class_crop = ClassCentricCrop(
+      short_sides = short_sides,
+      crop = crop_size,
+      ids = pascal_ids,
+)
+random_crop = RandomCentricCrop(
+      short_sides = short_sides,
+      crop = crop_size,
 )
 
-function hflip(img, mask)
-      return reverse(img; dims=2), reverse(mask; dims=2)
-end
+intensity_trainpipe =
+      Maybe(AdjustBrightness(0.15), 0.8) |>
+      Maybe(AdjustContrast(0.15), 0.8)
+
+geometric_trainpipe =
+      Maybe(FlipX{2}(), 0.5) |>
+      OneOf([Identity(), random_crop, class_crop], [0.2, 0.5, 0.3]) |>
+      CenterCrop(framesize) |>
+      PinOrigin()
 
 intensity_validpipe = Identity()
 geometric_validpipe = CenterResizeCrop(framesize) |> PinOrigin()
 
+function wrap_pair(img, mask, ids::Function)
+      return Image(img), MaskMulti(mask_ids(mask, ids) .+ 1, 1:256)
+end
+
 function unwrap_pair(img_wrap, mask_wrap)
-      img  = OffsetArrays.no_offset_view(img_wrap.data) .|> RGB{N0f8}
+      img = OffsetArrays.no_offset_view(img_wrap.data) .|> RGB{N0f8}
       mask = OffsetArrays.no_offset_view((mask_wrap.data .- 1) .|> Int16)
-      mask = map(v -> v in classnrs ? Int16(v) : Int16(255), mask)
+      mask = map(v -> v in classnrs ? v : Int16(255), mask)
       return img, mask
 end
 
-function valid_geometry(img, mask)
-      img_wrap = Image(img)
-      mask_wrap = MaskMulti((mask .+ 1), 1:256)
-      img_wrap, mask_wrap = apply(geometric_validpipe, (img_wrap, mask_wrap))
-      return unwrap_pair(img_wrap, mask_wrap)
-end
+# function valid_geometry(img, mask)
+#       img_wrap, mask_wrap = wrap_pair(img, mask, pascal_ids)
+#       img_wrap, mask_wrap = apply(geometric_validpipe, (img_wrap, mask_wrap))
+#       return unwrap_pair(img_wrap, mask_wrap)
+# end
 
-function object_geometry(img, mask)
-      img_wrap = Image(img)
-      mask_wrap = MaskMulti((mask .+ 1), 1:256)
-      img_wrap, mask_wrap = apply(geometric_trainpipe, (img_wrap, mask_wrap))
-      return unwrap_pair(img_wrap, mask_wrap)
-end
+# function object_geometry(img, mask)
+#       img_wrap, mask_wrap = wrap_pair(img, mask, pascal_ids)
+#       img_wrap, mask_wrap = apply(geometric_trainpipe, (img_wrap, mask_wrap))
+#       return unwrap_pair(img_wrap, mask_wrap)
+# end
 
 function data_augmentation(
       img::AbstractArray{RGB{N0f8}},
       mask::AbstractArray{Int16};
       intensity_tfm,
-      geometric_tfm,
-      train::Bool
+      geometric_tfm
 )
-      if train
-            if rand() < flip_prob
-                  img, mask = hflip(img, mask)
-            end
-            if rand() < object_crop_prob
-                  img, mask = object_geometry(img, mask)
-            else
-                  img, mask = valid_geometry(img, mask)
-            end
-            img_wrap = apply(intensity_tfm, Image(img))
-            img = OffsetArrays.no_offset_view(img_wrap.data) .|> RGB{N0f8}
-            return img, mask
-      end
+      img_wrap, mask_wrap = wrap_pair(img, mask, pascal_ids)
 
-      return valid_geometry(img, mask)
+      # augment
+      img_wrap = apply(intensity_tfm, img_wrap)   # intensity (img only)
+      img_wrap, mask_wrap = apply(geometric_tfm, (img_wrap, mask_wrap))   # geometric (img, mask)
+
+      img_unwrap, mask_unwrap = unwrap_pair(img_wrap, mask_wrap)
+      return img_unwrap, mask_unwrap
 end
 @info "environment OK"
 
@@ -223,7 +225,7 @@ FLoops.@floop for i in 1:Ntrain
       img, mask = data_augmentation(img, mask;
                         intensity_tfm=intensity_validpipe,
                         geometric_tfm=geometric_validpipe,
-                        train=false,
+                        # train=false,
       )
       Xs[:,:,i] = img
 end
@@ -251,12 +253,11 @@ FLoops.@floop for i in 1:Ntrain
       img, mask = data_augmentation(img, mask;
                                     intensity_tfm = intensity_validpipe,
                                     geometric_tfm = geometric_validpipe,
-                                    train=false,
       )
 
       mask = LibFluxML.onehot_fast(mask, classnrs; ignore_index=255) |>
             y -> reshape(y, size(y)..., 1) .|> Bool
-      ys[:,:,:,i] = mask
+      # ys[:,:,:,i] = mask
 end
 
 cs = LibFluxML.compute_class_counts(ys)
@@ -292,7 +293,7 @@ function Flux.getobs(d::CityscapesDataset, i::Int)
     img, mask = data_augmentation(img, mask;
                                   intensity_tfm = d.intensity_tfm,
                                   geometric_tfm = d.geometric_tfm,
-                                  train = d.train)
+    )
     
     X = convert_image2tensor(img)
     y = convert_mask2tensor(mask)
@@ -308,7 +309,7 @@ end
 # Training dataset (with heavy augmentation)
 train_dataset = CityscapesDataset(dftrain,
                               intensity_trainpipe,
-                              nothing,
+                              geometric_trainpipe,
                               true,
 )
 
