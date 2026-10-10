@@ -15,7 +15,7 @@ not wrapped as `Image`: a projective warp of an `Image` interpolates and mixes
 class ids. `MaskMulti` is warped with nearest neighbor.
 """
 
-using DataAugmentation
+# using DataAugmentation
 import DataAugmentation: apply, getrandstate, itemdata, OneOf
 
 const IGNORE = 0xff
