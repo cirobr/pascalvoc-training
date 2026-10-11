@@ -2,7 +2,7 @@
 
 julia_version = "1.13.1"
 manifest_format = "2.1"
-project_hash = "04390c0890acb09de6bf9c4d2edd2130c75adc41"
+project_hash = "c0fb254cb7963925bef821bbc0a6c10bbe08306f"
 
 [[deps.ADTypes]]
 deps = ["PrecompileTools"]
@@ -326,7 +326,7 @@ uuid = "1af6417a-86b4-443c-805f-a4643ffb695f"
 version = "2.1.1"
 
 [[deps.CUDA_Runtime_jll]]
-deps = ["Artifacts", "CUDA_Compiler_jll", "CUDA_Driver_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "TOML"]
+deps = ["Artifacts", "CUDA_Compiler_jll", "CUDA_Driver_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "MSVCRuntime_jll", "TOML"]
 git-tree-sha1 = "73ee54b64592c4157e7240e237a13c65049048c3"
 registries = "General"
 uuid = "76a88914-d11a-5bdc-97e0-2f5a05c973a2"
@@ -1422,6 +1422,14 @@ deps = ["Artifacts", "CompilerSupportLibraries_jll", "LibSSH2_jll", "Libdl", "Op
 uuid = "deac9b47-8bc7-5906-a0fe-35ac56dc84c0"
 version = "8.18.0+1"
 
+[[deps.LibDataAug]]
+deps = ["Colors", "DataAugmentation", "OffsetArrays"]
+git-tree-sha1 = "afce0e8e188b0a6907f0cb0ddde675279f7a72dc"
+repo-rev = "main"
+repo-url = "git@github.com:cirobr/LibDataAug.jl.git"
+uuid = "8ce57647-ee5c-43be-a4d7-4c390306d9e9"
+version = "0.0.1-DEV"
+
 [[deps.LibFluxML]]
 deps = ["Flux", "ImageCore", "JLD2", "ProgressBars", "Statistics"]
 git-tree-sha1 = "a36b22aefae7a9e21ebd52518ad4b47f8a5080c3"
@@ -1597,6 +1605,13 @@ git-tree-sha1 = "0a589dc0ada20d30b7e9ad13752cf25361875bf2"
 registries = "General"
 uuid = "f1d291b0-491e-4a28-83b9-f70985020b54"
 version = "0.4.13"
+
+[[deps.MSVCRuntime_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl"]
+git-tree-sha1 = "9670d7b2dbc92652a250e88eaa80861892d453e2"
+registries = "General"
+uuid = "ce32ce21-2cee-52aa-a084-5c6dad4fa7db"
+version = "14.51.36247+0"
 
 [[deps.MacroTools]]
 git-tree-sha1 = "1e0228a030642014fe5cfe68c2c0a818f9e3f522"
