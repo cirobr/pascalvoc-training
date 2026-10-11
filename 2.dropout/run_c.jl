@@ -11,10 +11,10 @@ cd(@__DIR__)
 ### arguments
 # envpath       = "../"
 # cudadevice    = 0
-# epochs        = 25
+# epochs        = 500
 # minibatchsize = 6
 # accum_steps   = 2
-# debugflag     = false
+# debugflag     = true
 
 
 ### libs
@@ -53,6 +53,8 @@ import Statistics: mean, minimum, maximum, norm, std, median
 # private libs
 using LibFluxML
 import LibFluxML: acc_score, f1_score, iou_score, per_class_iou   # metrics
+using LibDataAug
+import LibDataAug: data_augmentation
 using PascalVocTools; const pv=PascalVocTools
 
 using LibCUDA
@@ -62,7 +64,7 @@ LibCUDA.cleangpu()
 # dataset constants
 const imagesize = (500,500)   # original size
 const framesize = (256,256)   # resized size
-const classnrs  = pv.class_numbers[1:end-1]   # 0:20
+const classnrs  = pv.class_numbers   # 0:20
 const C = length(classnrs)
 
 
@@ -71,8 +73,11 @@ function get_image(path)
       return Images.load(expanduser(path)) .|> RGB{N0f8}        # original size
 end
 
+# Pascal VOC mask PNG to integers conversion
+to_ids(mask) = mask.index
+
 function get_mask(path)
-      return Images.load(expanduser(path)) |> mask -> mask.index .|> Int16
+      return Images.load(expanduser(path)) |> mask->to_ids(mask) .|> Int16
 end
 
 function convert_image2tensor(img::AbstractMatrix{RGB{N0f8}})
@@ -97,37 +102,29 @@ function get_normalization_params(x::AbstractArray{RGB{N0f8}})
 end
 
 
-# augmentation pipeline
-intensity_trainpipe = Identity()
-geometric_trainpipe = CenterResizeCrop(framesize)
+# augmentation
+const short_sides = 320:500
+const crop_size = framesize[1]
+
+random_crop = RandomCentricCrop(
+      short_sides = short_sides,
+      crop = crop_size,
+)
+class_crop = ClassCentricCrop(
+      short_sides = short_sides,
+      crop = crop_size,
+)
+
+intensity_trainpipe =
+      Maybe(AdjustBrightness(0.15), 0.8) |>
+      Maybe(AdjustContrast(0.15), 0.8)
+
+geometric_trainpipe =
+      Maybe(FlipX{2}(), 0.5) |>
+      OneOf([CenterResizeCrop(framesize), random_crop, class_crop], [0.1, 0.3, 0.6])
+
 intensity_validpipe = Identity()
 geometric_validpipe = CenterResizeCrop(framesize)
-
-
-function data_augmentation(
-      img::AbstractArray{RGB{N0f8}},
-      mask::AbstractArray{Int16};
-      intensity_tfm,
-      geometric_tfm
-)
-      # wrap
-      img_wrap  = Image(img)
-      mask_wrap = MaskMulti((mask .+ 1), 1:256)   # 0:255 .+ 1
-
-      # augment
-      img_wrap = apply(intensity_tfm, img_wrap)   # intensity (img only)
-      img_wrap, mask_wrap = apply(geometric_tfm, (img_wrap, mask_wrap))   # geometric (img, mask)
-
-      # unwrap
-      img_unwrap  = img_wrap.data .|> RGB{N0f8}
-      mask_unwrap = (mask_wrap.data .- 1) .|> Int16
-
-      # remove index offsets
-      img_unwrap  = OffsetArrays.no_offset_view(img_unwrap)
-      mask_unwrap = OffsetArrays.no_offset_view(mask_unwrap)
-      
-      return img_unwrap, mask_unwrap
-end
 @info "environment OK"
 
 
@@ -183,7 +180,8 @@ FLoops.@floop for i in 1:Ntrain
       mask = ys
       img, mask = data_augmentation(img, mask;
                         intensity_tfm=intensity_validpipe,
-                        geometric_tfm=geometric_validpipe
+                        geometric_tfm=geometric_validpipe,
+                        classnrs=classnrs,
       )
       Xs[:,:,i] = img
 end
@@ -211,6 +209,7 @@ FLoops.@floop for i in 1:Ntrain
       img, mask = data_augmentation(img, mask;
                                     intensity_tfm = intensity_validpipe,
                                     geometric_tfm = geometric_validpipe,
+                                    classnrs=classnrs,
       )
 
       mask = LibFluxML.onehot_fast(mask, classnrs; ignore_index=255) |>
@@ -249,7 +248,9 @@ function Flux.getobs(d::CityscapesDataset, i::Int)
     
     img, mask = data_augmentation(img, mask;
                                   intensity_tfm = d.intensity_tfm,
-                                  geometric_tfm = d.geometric_tfm)
+                                  geometric_tfm = d.geometric_tfm,
+                                  classnrs=classnrs,
+    )
     
     X = convert_image2tensor(img)
     y = convert_mask2tensor(mask)
@@ -263,15 +264,15 @@ function Flux.getobs(d::CityscapesDataset, idx::AbstractVector{<:Integer})
 end
 
 # Training dataset (with heavy augmentation)
-train_dataset = CityscapesDataset(dftrain, 
-                              intensity_trainpipe, 
-                              geometric_trainpipe
+train_dataset = CityscapesDataset(dftrain,
+                              intensity_trainpipe,
+                              geometric_trainpipe,
 )
 
 # Validation dataset (light/no augmentation)
-valid_dataset = CityscapesDataset(dfvalid, 
+valid_dataset = CityscapesDataset(dfvalid,
                               intensity_validpipe,
-                              geometric_validpipe
+                              geometric_validpipe,
 )
 
 # data loaders
@@ -340,7 +341,7 @@ function validLossFunction(model,X,y)
       yhat, y = evaluate_model(model, X, y)
       return LibFluxML.iou_loss(yhat, y;
                   logits=true,
-                  include_background=true,
+                  include_background=false,
                   exclude_voids=true,
                   reduction=:sum,
                   device=dev,
@@ -353,7 +354,7 @@ end
 η       = 1e-3
 # final_η = 5e-5
 β  = (0.9, 0.999)
-# λ  = 1e-5
+λ  = 1e-5
 # cn = 1.0    # clip norm
 # cg = 1.0    # clip grad
 
@@ -361,8 +362,8 @@ opt = OptimiserChain(
       Flux.AccumGrad(accum_steps),
       # Flux.ClipNorm(cn),
       # Flux.ClipGrad(cg),
-      # Flux.AdamW(η, β, λ),
-      Flux.Adam(η, β),
+      Flux.AdamW(η, β, λ),
+      # Flux.Adam(η, β),
 )
 # opt_mp = Optimisers.MixedPrecision(Float16, opt)
 optimizerState = Flux.setup(opt, model)
