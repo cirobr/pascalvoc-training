@@ -9,6 +9,7 @@ Images = "916415d5-f1e6-5110-898d-aaa5f9f070e0"
 Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 LibCUDA = "62f6ea4e-5fa0-47a8-a0b1-4c5959d5d2d3"
+LibDataAug = "8ce57647-ee5c-43be-a4d7-4c390306d9e9"
 LibFluxML = "06a27b3f-e48e-4378-94d6-12b963ed26a7"
 MLUtils = "f1d291b0-491e-4a28-83b9-f70985020b54"
 OffsetArrays = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
@@ -22,6 +23,7 @@ cuDNN = "02a925ec-e4fe-4b08-9a7e-0d78e3d38ccd"
 
 [sources]
 LibCUDA = {rev = "main", url = "git@github.com:cirobr/LibCUDA.jl.git"}
-LibFluxML = {rev = "main", url = "git@github.com:cirobr/LibFluxML.jl.git"}
+LibDataAug = {rev = "main", url = "git@github.com:cirobr/LibDataAug.jl.git"}
+LibFluxML = {rev = "v0.0.64", url = "git@github.com:cirobr/LibFluxML.jl.git"}
 PascalVocTools = {rev = "main", url = "git@github.com:cirobr/PascalVocTools.jl.git"}
 TinyMachines = {rev = "v0.6.0-unets", url = "https://github.com/cirobr/TinyMachines.jl.git"}
