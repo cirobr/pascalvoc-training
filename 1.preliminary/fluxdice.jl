@@ -347,6 +347,7 @@ loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.tra
 # loss functions
 function trainLossFunction(model,X,y)
       yhat, y = evaluate_model(model, X, y)
+      yhat = Flux.softmax(yhat, dims=3)
       return Flux.dice_coeff_loss(yhat, y)
 end
 

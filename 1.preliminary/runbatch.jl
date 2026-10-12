@@ -21,11 +21,13 @@ scripts = [
     # "dice.jl",
     # "dicesq.jl",
     # "gdl.jl",
-    "tversky.jl",
+    # "tversky.jl",
     # "ce.jl",
     # "focal.jl",
     # "dfl.jl",
     # "gdfl.jl",
+    "fluxdice.jl",
+    "fluxce.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
