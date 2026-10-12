@@ -1432,7 +1432,7 @@ version = "0.0.1-DEV"
 
 [[deps.LibFluxML]]
 deps = ["Flux", "ImageCore", "JLD2", "ProgressBars", "Statistics"]
-git-tree-sha1 = "5f07bb6c9f100c6e176bc28c8318a951e63a81b1"
+git-tree-sha1 = "7f5efeb8832df3411e0cd4b2e3aca45358de6ff6"
 repo-rev = "v0.0.64"
 repo-url = "git@github.com:cirobr/LibFluxML.jl.git"
 uuid = "06a27b3f-e48e-4378-94d6-12b963ed26a7"

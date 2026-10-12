@@ -12,7 +12,7 @@ cudadevice    = 1
 epochs        = 500
 minibatchsize = 6
 accum_steps   = 2
-debugflag     = true
+debugflag     = false
 
 
 ### projects
