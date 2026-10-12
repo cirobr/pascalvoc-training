@@ -17,14 +17,15 @@ debugflag     = false
 
 ### projects
 scripts = [
-    "iou.jl",
-    "dice.jl",
-    "dicesq.jl",
-    "gdl.jl",
-    "ce.jl",
-    "focal.jl",
-    "dfl.jl",
-    "gdfl.jl",
+    # "iou.jl",
+    # "dice.jl",
+    # "dicesq.jl",
+    # "gdl.jl",
+    "tversky.jl",
+    # "ce.jl",
+    # "focal.jl",
+    # "dfl.jl",
+    # "gdfl.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 

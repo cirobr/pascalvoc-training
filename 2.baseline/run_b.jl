@@ -301,8 +301,8 @@ function evaluate_model(model, X, y)
 end
 
 modelcpu = unet5(3,C, activation=leakyrelu,
-            edrops=(0.0, 0.0, 0.0, 0.0, 0.5),   # encoder dropout
-            ddrops=(0.0, 0.0, 0.0, 0.0)         # decoder dropout
+            edrops=(0.0, 0.0, 0.10, 0.20, 0.25),   # encoder dropout
+            ddrops=(0.0, 0.0, 0.10, 0.20)         # decoder dropout
 )
 # fpfn = "models/unet5_4/bestmodel.jld2"
 # LibFluxML.loadModelState!(fpfn, modelcpu)
@@ -332,7 +332,7 @@ function trainLossFunction(model,X,y)
                   logits=true,
                   include_background=false,
                   exclude_voids=true,
-                  reduction=:sum,
+                  reduction=:mean,
                   device=dev,
       )
 end
@@ -343,7 +343,7 @@ function validLossFunction(model,X,y)
                   logits=true,
                   include_background=false,
                   exclude_voids=true,
-                  reduction=:sum,
+                  reduction=:mean,
                   device=dev,
       )
 end

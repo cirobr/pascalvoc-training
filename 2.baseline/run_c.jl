@@ -332,7 +332,7 @@ function trainLossFunction(model,X,y)
                   logits=true,
                   include_background=false,
                   exclude_voids=true,
-                  reduction=:sum,
+                  reduction=:mean,
                   device=dev,
       )
 end
@@ -343,7 +343,7 @@ function validLossFunction(model,X,y)
                   logits=true,
                   include_background=false,
                   exclude_voids=true,
-                  reduction=:sum,
+                  reduction=:mean,
                   device=dev,
       )
 end
