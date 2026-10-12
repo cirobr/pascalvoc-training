@@ -26,8 +26,8 @@ scripts = [
     # "focal.jl",
     # "dfl.jl",
     # "gdfl.jl",
-    "fluxdice.jl",
-    "fluxce.jl",
+    # "fluxdice.jl",
+    "iou_micro.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
