@@ -231,16 +231,16 @@ train_weights = median_weights .|> Float32 |> dev
 
 
 # data loading
-struct CityscapesDataset
+struct PascalVocDataset
     df::DataFrame
     intensity_tfm
     geometric_tfm
 end
 
 # Interface
-Flux.numobs(d::CityscapesDataset) = nrow(d.df)
+Flux.numobs(d::PascalVocDataset) = nrow(d.df)
 
-function Flux.getobs(d::CityscapesDataset, i::Int)
+function Flux.getobs(d::PascalVocDataset, i::Int)
     row = d.df[i, :]
     
     img  = get_image(expanduser(row.X))
@@ -259,18 +259,18 @@ function Flux.getobs(d::CityscapesDataset, i::Int)
 end
 
 # Batch version
-function Flux.getobs(d::CityscapesDataset, idx::AbstractVector{<:Integer})
+function Flux.getobs(d::PascalVocDataset, idx::AbstractVector{<:Integer})
     [Flux.getobs(d, i) for i in idx]
 end
 
 # Training dataset (with heavy augmentation)
-train_dataset = CityscapesDataset(dftrain,
+train_dataset = PascalVocDataset(dftrain,
                               intensity_trainpipe,
                               geometric_trainpipe,
 )
 
 # Validation dataset (light/no augmentation)
-valid_dataset = CityscapesDataset(dfvalid,
+valid_dataset = PascalVocDataset(dfvalid,
                               intensity_validpipe,
                               geometric_validpipe,
 )
