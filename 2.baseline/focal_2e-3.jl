@@ -300,9 +300,12 @@ function evaluate_model(model, X, y)
       return (yhat, y)
 end
 
+# mild overfitting dropouts
+edrops=(0.0, 0.0, 0.10, 0.20, 0.25),   # encoder dropout
+ddrops=(0.0, 0.0, 0.10, 0.20)          # decoder dropout
 modelcpu = unet5(3,C, activation=leakyrelu,
-            edrops=(0.0, 0.0, 0.10, 0.20, 0.25),   # encoder dropout
-            ddrops=(0.0, 0.0, 0.10, 0.20)         # decoder dropout
+            edrops=edrops,
+            ddrops=ddrops
 )
 fpfn = "models/run_b/bestmodel.jld2"
 LibFluxML.loadModelState!(fpfn, modelcpu)
