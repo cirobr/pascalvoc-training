@@ -17,7 +17,7 @@ debugflag     = true
 
 ### projects
 scripts = [
-    "unet5h.jl",
+    "unet5_v1a.jl",
     "espnet.jl",
     "mobileunet.jl",
 ]

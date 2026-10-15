@@ -300,7 +300,7 @@ function evaluate_model(model, X, y)
       return (yhat, y)
 end
 
-modelcpu = unet5H(3,C, activation=leakyrelu,
+modelcpu = TinyMachines.unet5_v1a(3,C, activation=leakyrelu,
             edrops=(0.0, 0.0, 0.10, 0.20, 0.25),   # encoder dropout
             ddrops=(0.0, 0.0, 0.10, 0.20)         # decoder dropout
 )
