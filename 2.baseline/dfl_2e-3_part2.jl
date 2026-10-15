@@ -333,7 +333,7 @@ function trainLossFunction(model,X,y)
                   include_background=false,
                   exclude_voids=true,
                   gamma=2.0,
-                  dice_weight=0.5,    # test to reduce noise
+                  dice_weight=0.2,    # test to reduce noise
                   focal_weight=1.0,   # same as previous run
                   reduction=:mean,
                   device=dev,
@@ -354,7 +354,7 @@ end
 
 
 # optimizer & scheduler
-η       = 3e-3
+η       = 2e-3
 # final_η = 5e-5
 β  = (0.9, 0.999)
 λ  = 1e-5

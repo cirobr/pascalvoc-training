@@ -18,11 +18,11 @@ debugflag     = false
 ### projects
 scripts = [
     # "run_a.jl",
-    # "run_b.jl",      ### best baseline model, iou_loss, lr=2e-3 ###
+    # "run_b.jl",            ### best baseline model, iou_loss, lr=2e-3 ###
     # "run_c.jl",
-    # "focal_2e-3.jl", #1: load baseline, focal loss, lr=2e-3
-    # "dfl_2e-3.jl",   #2: load #1, focal_weight=1.0, dice_weight=0.2, lr=2e-3
-    "dfl_3e-3.jl";   #3: load #2, focal_weight=1.0, dice_weight=0.5, lr=3e-3
+    # "focal_2e-3.jl",       #1: load baseline, focal loss, lr=2e-3
+    # "dfl_2e-3.jl",         #2: load #1, focal_weight=1.0, dice_weight=0.2, lr=2e-3
+    # "dfl_2e-3_part2.jl",   #3: load #2, focal_weight=1.0, dice_weight=0.2, lr=2e-3
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
