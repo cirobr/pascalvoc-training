@@ -300,11 +300,14 @@ function evaluate_model(model, X, y)
       return (yhat, y)
 end
 
-modelcpu = unet5(3,C, activation=leakyrelu,
-            edrops=(0.0, 0.0, 0.10, 0.20, 0.25),   # encoder dropout
-            ddrops=(0.0, 0.0, 0.10, 0.20)         # decoder dropout
-)
-fpfn = "models/dfl_2e-3/bestmodel.jld2"
+# paper-faithful:    edrops=(0.0, 0.0, 0.0, 0.0, 0.5), ddrops=(0.0, 0.0, 0.0, 0.0)
+# mild overfitting:  edrops=(0.0, 0.0, 0.10, 0.20, 0.25), ddrops=(0.0, 0.0, 0.10, 0.20)
+# clear overfitting: edrops=(0.05, 0.10, 0.15, 0.20, 0.30), ddrops=(0.00, 0.05, 0.10, 0.15)
+edrops=(0.00, 0.10, 0.15, 0.20, 0.30)
+ddrops=(0.00, 0.05, 0.10, 0.15)
+
+modelcpu = unet5(3,C; activation=leakyrelu, edrops=edrops, ddrops=ddrops)
+fpfn = "models/dfl_2e-3_part2/bestmodel.jld2"
 LibFluxML.loadModelState!(fpfn, modelcpu)
 @info "model loaded from $fpfn"
 model = modelcpu |> dev
@@ -328,13 +331,11 @@ loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.tra
 # loss functions
 function trainLossFunction(model,X,y)
       yhat, y = evaluate_model(model, X, y)
-      return LibFluxML.dfl(yhat, y;
+      return LibFluxML.tversky_loss(yhat, y;
                   logits=true,
                   include_background=false,
                   exclude_voids=true,
-                  gamma=2.0,
-                  dice_weight=0.2,    # test to reduce noise
-                  focal_weight=1.0,   # same as previous run
+                  beta=0.7,
                   reduction=:mean,
                   device=dev,
       )

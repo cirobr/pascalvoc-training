@@ -23,6 +23,7 @@ scripts = [
     # "focal_2e-3.jl",       #1: load baseline, focal loss, lr=2e-3
     # "dfl_2e-3.jl",         #2: load #1, focal_weight=1.0, dice_weight=0.2, lr=2e-3
     # "dfl_2e-3_part2.jl",   #3: load #2, focal_weight=1.0, dice_weight=0.2, lr=2e-3
+    "tversky.jl",   #4 load #3, beta=0.7, lr=2e-3
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
