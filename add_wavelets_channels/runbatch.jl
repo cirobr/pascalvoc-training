@@ -9,7 +9,7 @@ Template for executing multiple scripts in series.
 ### arguments
 envpath       = "./"
 cudadevice    = 1
-epochs        = 500
+epochs        = 1000
 minibatchsize = 6
 accum_steps   = 2
 debugflag     = false
@@ -17,7 +17,8 @@ debugflag     = false
 
 ### projects
 scripts = [
-    "dfl.jl",
+    # "dfl.jl",
+    "dfl_p2.jl"   # contunue from broken pipe
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
