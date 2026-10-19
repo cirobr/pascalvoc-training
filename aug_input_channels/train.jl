@@ -56,12 +56,11 @@ import Interpolations: BSpline
 # private libs
 using LibFluxML
 import LibFluxML: acc_score, f1_score, iou_score, per_class_iou   # metrics
-using LibDataAug
-import LibDataAug: apply_data_augmentation
+using LibDataAug; const la=LibDataAug
+# import LibDataAug: apply_data_augmentation
 using PreprocessingImages; const p=PreprocessingImages
-import PreprocessingImages: get_normalization_params
+# import PreprocessingImages: get_normalization_params
 using PascalVocTools; const pv=PascalVocTools
-# include("revised_functions.jl")   # functions under revision/update
 include("experimental_functions.jl")
 
 using LibCUDA
@@ -184,6 +183,20 @@ Nvalid = size(dfvalid, 1)
 
 
 # calculate normalization parameters and class frequencies
+function apply_data_augmentation(
+      img::AbstractArray{<:Color{N0f8}},
+      mask::AbstractArray{Int16};
+      intensity_tfm,
+      geometric_tfm,
+      classnrs,
+)
+      img_wrap, mask_wrap = la.wrap_pair(img, mask)
+      img_wrap = apply(intensity_tfm, img_wrap)   # intensity (img only)
+      img_wrap, mask_wrap = apply(geometric_tfm, (img_wrap, mask_wrap))   # geometric (img, mask)
+
+      return la.unwrap_pair(img_wrap, mask_wrap; classnrs=classnrs)   # (aug img, aug mask)
+end
+
 Xs = Array{RGB{N0f8}}(undef, (framesize...,Ntrain))
 ys = Array{Bool,4}(undef, (framesize...,C,Ntrain))
 FLoops.@floop for i in 1:Ntrain
@@ -201,6 +214,17 @@ FLoops.@floop for i in 1:Ntrain
 end
 
 # normalization parameters
+function get_normalization_params(x::AbstractArray{<:Color{N0f8}})
+      xf = channelview(x)   # CHWN
+      if ndims(xf) == 2
+            xf = reshape(xf, (size(xf)...,1))
+      end
+      dims = (2,3,4)
+      μs = mean(xf, dims=dims) |> x -> dropdims(x, dims=dims) .|> Float32
+      σs = std(xf, dims=dims)  |> x -> dropdims(x, dims=dims) .|> Float32
+      return μs, σs
+end
+
 means, stds = get_normalization_params(Xs)
 means = means .|> Float32 |> x->trunc.(x, digits=6)
 stds  = stds  .|> Float32 |> x->trunc.(x, digits=6)
@@ -519,8 +543,8 @@ mv(expanduser(modelsfolder) * "model.jld2", expanduser(modelsfolder) * "bestmode
 
 
 # cleanup
-# modelcpu = nothing
-# model    = nothing
+modelcpu = nothing
+model    = nothing
 LibCUDA.cleangpu()
 @info "*** Project $( basename(@__FILE__) ) finished ***"
 println()
