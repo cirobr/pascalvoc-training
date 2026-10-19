@@ -49,6 +49,9 @@ using FLoops
 using Printf
 using ProgressBars; const pb=ProgressBars
 import Statistics: mean, minimum, maximum, norm, std, median
+using Wavelets
+using Interpolations
+import Interpolations: BSpline
 
 # private libs
 using LibFluxML
@@ -69,6 +72,7 @@ const imagesize = (500,500)   # original size
 const framesize = (256,256)   # resized size
 const classnrs  = pv.class_numbers   # 0:20
 const C = length(classnrs)
+Cin = 3
 
 
 # custom functions
@@ -96,14 +100,62 @@ function convert_mask2tensor(mask::AbstractMatrix{Int16})
             # Float32
 end
 
-function apply_channels_augmentation(X::AbstractArray; activate::Bool=false)
-      if !activate   return X   end   # pass-through
+"""
+Convert Float32,3 array to Float32 matrix (i.e., color to gray)
+"""
+function colorf32_to_grayf32(X::AbstractArray{T,3}) where T
+      Xgray = p.array2image(X) .|> Gray
+      return channelview(Xgray)
+end
 
+"""
+Add horizontal+vertical gradient detail channel
+"""
+function add_grads_channel(X::AbstractArray{T,3}) where T
+      Xfloat = colorf32_to_grayf32(X)
+      Xgrad  = p.transf_grad(Xfloat)
+      return reshape(Xgrad, size(Xgrad)..., 1)
+end
+
+"""
+Add high-frequency detail channels from a 1-level DWT.
+"""
+function add_wavelet_channels(X::AbstractArray{T,3}; 
+                              wavelet = wavelet(WT.haar), 
+                              level::Int = 1,
+) where T
+      Xfloat = colorf32_to_grayf32(X)
+      H, W = size(Xfloat)
+
+      # 1-level (or multi-level) DWT on this channel
+      coeffs = dwt(Xfloat, wavelet, level)
+
+      # Extract the three detail quadrants (half resolution)
+      half_h, half_w = size(coeffs) .÷ 2
+      LH = coeffs[1:half_h, half_w+1:end]          # or adjust indices if needed
+      HL = coeffs[half_h+1:end, 1:half_w]
+      HH = coeffs[half_h+1:end, half_w+1:end]
+
+      # Upsample each detail map back to original size
+      LH_up = imresize(LH, (H, W); method = BSpline(Linear()))
+      HL_up = imresize(HL, (H, W); method = BSpline(Linear()))
+      HH_up = imresize(HH, (H, W); method = BSpline(Linear()))
+
+      # Optionally normalize / scale
+      LH_up ./= maximum(abs, LH_up) + eps(T)
+      HL_up ./= maximum(abs, HL_up) + eps(T)
+      HH_up ./= maximum(abs, HH_up) + eps(T)
+
+      return LH_up, HL_up, HH_up
+end
+
+function apply_channels_augmentation(X::AbstractArray; activate::Bool=true)
+      if !activate   return X   end          # pass-through
       # augmentation
-      Xcolor = p.array2image(X) .|> RGB{N0f8}
-      Xgrad = p.transf_grad(Xcolor)
-      Xout = cat(X, Xgrad; dims=3)
+      Xg = add_grads_channel(X)              # 1-ch gradient
+      LH, HL, HH = add_wavelet_channels(X)   # 3-ch wavelet transformation
 
+      Xout = cat(X, Xg, LH, HL, HH; dims=3)
       return Xout
 end
 
@@ -207,14 +259,14 @@ stds  = reshape(stds,  (1,1,3))
 
 # class frequencies and weights
 cs = LibFluxML.compute_class_counts(ys)
-Xs = nothing
-ys = nothing
-
 cs = cs[2:end]   # ignore background class
 median_weights, inverse_weights, inverse_squared_weights, inverse_class_weights =
       LibFluxML.compute_class_weights(cs)
 
 train_weights = median_weights .|> Float32 |> dev
+
+Xs = nothing
+ys = nothing
 @info "loss weights OK"
 # @assert false
 
@@ -227,6 +279,8 @@ struct PascalVocDataset
 end
 
 # Interface
+Cin = Cin + 4   # adjust for the number of augmented input channels
+
 Flux.numobs(d::PascalVocDataset) = nrow(d.df)
 
 function Flux.getobs(d::PascalVocDataset, i::Int)
@@ -242,7 +296,7 @@ function Flux.getobs(d::PascalVocDataset, i::Int)
     )
     
     X_float = convert_image2tensor(img)
-    X = apply_channels_augmentation(X_float) #; activate=false)
+    X = apply_channels_augmentation(X_float; activate=true) # default false (no augmentation)
     y = convert_mask2tensor(mask)
 
     
@@ -297,7 +351,7 @@ end
 edrops=(0.00, 0.10, 0.15, 0.20, 0.30)
 ddrops=(0.00, 0.05, 0.10, 0.15)
 
-modelcpu = unet5(3,C; activation=leakyrelu, edrops=edrops, ddrops=ddrops)
+modelcpu = unet5(Cin,C; activation=leakyrelu, edrops=edrops, ddrops=ddrops)
 # fpfn = "../2.baseline/models/dfl_2e-3_part2/bestmodel.jld2"
 # LibFluxML.loadModelState!(fpfn, modelcpu)
 # @info "model loaded from $fpfn"
@@ -514,8 +568,8 @@ mv(expanduser(modelsfolder) * "model.jld2", expanduser(modelsfolder) * "bestmode
 
 
 # cleanup
-modelcpu = nothing
-model    = nothing
+# modelcpu = nothing
+# model    = nothing
 LibCUDA.cleangpu()
 @info "*** Project $( basename(@__FILE__) ) finished ***"
 println()
