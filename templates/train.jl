@@ -71,18 +71,16 @@ LibCUDA.cleangpu()
 const imagesize = (500,500)   # original size
 const framesize = (256,256)   # resized size
 const classnrs  = pv.class_numbers   # 0:20
-const C = length(classnrs)
-Cin = 3; colorflag = true   # color input images
-# Cin = 1; colorflag = false   # gray input images
+const C_out = length(classnrs)
+C_in = 3
+# C_in = 1
+colorflag =  C_in > 1 ? true : false
 
 
 # custom functions
-function get_image(path::String; color::Bool=true)
-      if color
-            return Images.load(expanduser(path)) .|> RGB{N0f8}
-      else
-            return Images.load(expanduser(path)) .|> Gray{N0f8}
-      end
+function get_image(path::String)
+      img = Images.load(expanduser(path))
+      return colorflag ? RGB{N0f8}.(img) : Gray{N0f8}.(img)
 end
 
 # Pascal VOC mask PNG to integers conversion
@@ -94,17 +92,8 @@ end
 
 normalize_tensor(x) = (x .- means) ./ (stds)
 
-function convert_image2tensor(img::AbstractMatrix{<:Color}; color::Bool=true)
-      if color
-            img_f = Images.channelview(RGB.(img))        # CHW
-            img_f = permutedims(img_f, (2,3,1))          # HWC
-      else
-            img_f = Images.channelview(Gray.(img))       # HW
-            img_f = reshape(img_f, (size(img_f)...,1))   # HWC
-      end
-
-      img_f = normalize_tensor(img_f) .|> Float32
-      return img_f
+function convert_image2tensor(img::AbstractMatrix{<:Color})
+      return p.image2Float32(img) |> x->normalize_tensor(x) .|> Float32
 end
 
 function convert_mask2tensor(mask::AbstractMatrix{Int16})
@@ -113,8 +102,8 @@ function convert_mask2tensor(mask::AbstractMatrix{Int16})
             # Float32
 end
 
-Caug = 0; ch_aug_flag = false
-# Caug = 4; ch_aug_flag = true
+C_aug = 0; ch_aug_flag = false
+# C_aug = 4; ch_aug_flag = true
 function apply_channels_augmentation(x::AbstractArray; activate::Bool=true)
       if !activate   return x   end          # pass-through
       # augmentation
@@ -197,15 +186,12 @@ Nvalid = size(dfvalid, 1)
 
 
 # calculate normalization parameters and class frequencies
-Xs = nothing
-if colorflag
-      Xs = Array{RGB{N0f8}}(undef, (framesize...,Ntrain))
-else
-      Xs = Array{Gray{N0f8}}(undef, (framesize...,Ntrain))
-end
-ys = Array{Bool,4}(undef, (framesize...,C,Ntrain))
+T = colorflag ? RGB{N0f8} : Gray{N0f8}
+Xs = Array{T}(undef, (framesize...,Ntrain))
+ys = Array{Bool,4}(undef, (framesize...,C_out,Ntrain))
+
 FLoops.@floop for i in 1:Ntrain
-      img = get_image(expanduser(dftrain.X[i]); color=colorflag)
+      img = get_image(expanduser(dftrain.X[i]))
       mask = get_mask(expanduser(dftrain.y[i]))
       img, mask = apply_data_augmentation(img, mask;
                         intensity_tfm=intensity_validpipe,
@@ -255,22 +241,24 @@ end
 Flux.numobs(d::PascalVocDataset) = nrow(d.df)
 
 function Flux.getobs(d::PascalVocDataset, i::Int)
-    row = d.df[i, :]
+      row = d.df[i, :]
+      
+      img  = get_image(expanduser(row.X))
+      mask = get_mask(expanduser(row.y))
     
-    img  = get_image(expanduser(row.X); color=colorflag)
-    mask = get_mask(expanduser(row.y))
-    
-    img, mask = apply_data_augmentation(img, mask;
-                  intensity_tfm = d.intensity_tfm,
-                  geometric_tfm = d.geometric_tfm,
-                  classnrs=classnrs,
-    )
+      img, mask = apply_data_augmentation(img, mask;
+                        intensity_tfm = d.intensity_tfm,
+                        geometric_tfm = d.geometric_tfm,
+                        classnrs=classnrs,
+      )
 
-    X_tensor = convert_image2tensor(img; color=colorflag) # Float32,3
-    X = apply_channels_augmentation(X_tensor; activate=ch_aug_flag)
-    y = convert_mask2tensor(mask)
-    
-    return (X, y)
+      # ATTENTION: img after transformation is RGB, even if the input image is Gray
+      img = colorflag ? RGB.(img) : Gray.(img)
+      X_tensor = convert_image2tensor(img)
+      X = apply_channels_augmentation(X_tensor; activate=ch_aug_flag)
+      y = convert_mask2tensor(mask)
+      
+      return (X, y)
 end
 
 # Batch version
@@ -321,7 +309,7 @@ end
 edrops=(0.00, 0.10, 0.15, 0.20, 0.30)
 ddrops=(0.00, 0.05, 0.10, 0.15)
 
-modelcpu = unet5(Cin+Caug,C; activation=leakyrelu, edrops=edrops, ddrops=ddrops)
+modelcpu = unet5(C_in+C_aug, C_out; activation=leakyrelu, edrops=edrops, ddrops=ddrops)
 # fpfn = "../2.baseline/models/dfl_2e-3_part2/bestmodel.jld2"
 # LibFluxML.loadModelState!(fpfn, modelcpu)
 # @info "model loaded from $fpfn"

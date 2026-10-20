@@ -2,7 +2,7 @@
 
 julia_version = "1.13.2"
 manifest_format = "2.1"
-project_hash = "7ff2b16acace49b95f1eac91950c0ece8ae5b584"
+project_hash = "c60f9e209c72cab21536aed38f4f7766693be0be"
 
 [[deps.ADTypes]]
 deps = ["PrecompileTools"]
@@ -1404,10 +1404,10 @@ version = "3.0.1"
 
 [[deps.LMDB_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "56b8af9f260b5a5ea4cd3c12cb8faa028cf8fa15"
+git-tree-sha1 = "6cb97fd04da7a92e85ed17e4759ff740ce8d8296"
 registries = "General"
 uuid = "6206cf0b-f360-5984-af49-5437264c140e"
-version = "1.0.0+0"
+version = "1.0.2+0"
 
 [[deps.LaTeXStrings]]
 git-tree-sha1 = "f88f3ccef05a6a72a0cf0ed417c8fd68530f4ab2"
@@ -1784,10 +1784,10 @@ version = "3.2.2+0"
 
 [[deps.NaNMath]]
 deps = ["OpenLibm_jll"]
-git-tree-sha1 = "dbd2e8cd2c1c27f0b584f6661b4309609c5a685e"
+git-tree-sha1 = "676c0f1c1c34224d6869675047a54b42fdc7b8c5"
 registries = "General"
 uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
-version = "1.1.4"
+version = "1.1.5"
 
 [[deps.NameResolution]]
 deps = ["PrettyPrint"]
@@ -2032,8 +2032,8 @@ version = "1.6.1"
 
 [[deps.PreprocessingImages]]
 deps = ["Colors", "Images", "Interpolations", "Statistics"]
-git-tree-sha1 = "65b973b8381f434f610e9a13fb133e51541d1dfd"
-repo-rev = "v0.0.11"
+git-tree-sha1 = "ea5233a1bd7bfdfd05288d8203c5c01e9abd98f1"
+repo-rev = "main"
 repo-url = "git@github.com:cirobr/PreprocessingImages.jl.git"
 uuid = "6a52935f-723c-4a2a-832b-626b8fc4f182"
 version = "0.0.11"
@@ -2082,14 +2082,15 @@ version = "0.1.6"
 
 [[deps.ProgressMeter]]
 deps = ["Printf"]
-git-tree-sha1 = "d72534986f4a4641b4d2492a154ec0b0e6985284"
+git-tree-sha1 = "ce5ba3edfdeba107a721748d53b5f5887f415853"
 registries = "General"
 uuid = "92933f4c-e287-5a05-a399-4b506db050ca"
-version = "1.12.0"
-weakdeps = ["Distributed"]
+version = "1.13.0"
+weakdeps = ["Distributed", "IJulia"]
 
     [deps.ProgressMeter.extensions]
     ProgressMeterDistributedExt = "Distributed"
+    ProgressMeterIJuliaExt = "IJulia"
 
 [[deps.ProtoBuf]]
 deps = ["BufferedStreams", "EnumX", "TOML"]

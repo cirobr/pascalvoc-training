@@ -1,7 +1,7 @@
 function convert_to_gray_tensor(x::AbstractArray{Float32,3})
       n = size(x)[3]
       if n == 3
-            x_chw = permutedims(x, (3,1,2))
+            x_chw     = permutedims(x, (3,1,2))
             img_color = colorview(RGB, x_chw)
             img_gray  = Gray.(img_color)
             gray_tensor = channelview(img_gray)
@@ -10,7 +10,7 @@ function convert_to_gray_tensor(x::AbstractArray{Float32,3})
       else
             error("input tensor with incorrect channels dimension")
       end
-
+      
       return gray_tensor # Float32,3
 end
 
@@ -18,7 +18,7 @@ end
 """
 Add horizontal+vertical gradient detail channel
 """
-function add_grads_channel(x::AbstractArray{T,N}) where {T,N}
+function add_grads_channel(x::AbstractArray{Float32,3})
       x_gray_tensor = convert_to_gray_tensor(x)
       x_grad = p.transf_grad(x_gray_tensor)
       return reshape(x_grad, size(x_grad)..., 1)
@@ -28,10 +28,10 @@ end
 """
 Add high-frequency detail channels from a 1-level DWT.
 """
-function add_wavelet_channels(x::AbstractArray{T,N}; 
+function add_wavelet_channels(x::AbstractArray{Float32,3},
                               wavelet = wavelet(WT.haar), 
                               level::Int = 1,
-) where {T,N}
+)
       x_gray_tensor = convert_to_gray_tensor(x)[:,:]
       H, W = size(x_gray_tensor)
 
@@ -50,9 +50,9 @@ function add_wavelet_channels(x::AbstractArray{T,N};
       HH_up = imresize(HH, (H, W); method = BSpline(Linear()))
 
       # Optionally normalize / scale
-      LH_up ./= maximum(abs, LH_up) + eps(T)
-      HL_up ./= maximum(abs, HL_up) + eps(T)
-      HH_up ./= maximum(abs, HH_up) + eps(T)
+      LH_up ./= maximum(abs, LH_up) + eps(Float32)
+      HL_up ./= maximum(abs, HL_up) + eps(Float32)
+      HH_up ./= maximum(abs, HH_up) + eps(Float32)
 
       return LH_up, HL_up, HH_up
 end
