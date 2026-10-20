@@ -1,7 +1,7 @@
 """
 Convert Float32,3 array to Float32 matrix (i.e., color to gray)
 """
-function colorf32_to_grayf32(x::AbstractArray{T,3}) where T
+function colorf32_to_grayf32(x::AbstractArray{T,N}) where {T,N}
       x_gray = p.array2image(x) .|> Gray
       return channelview(x_gray)
 end
@@ -10,7 +10,7 @@ end
 """
 Add horizontal+vertical gradient detail channel
 """
-function add_grads_channel(x::AbstractArray{T,3}) where T
+function add_grads_channel(x::AbstractArray{T,N}) where {T,N}
       x_float = colorf32_to_grayf32(x)
       x_grad  = p.transf_grad(x_float)
       return reshape(x_grad, size(x_grad)..., 1)
@@ -20,10 +20,10 @@ end
 """
 Add high-frequency detail channels from a 1-level DWT.
 """
-function add_wavelet_channels(x::AbstractArray{T,3}; 
+function add_wavelet_channels(x::AbstractArray{T,N}; 
                               wavelet = wavelet(WT.haar), 
                               level::Int = 1,
-) where T
+) where {T,N}
       x_float = colorf32_to_grayf32(x)
       H, W = size(x_float)
 
@@ -48,4 +48,3 @@ function add_wavelet_channels(x::AbstractArray{T,3};
 
       return LH_up, HL_up, HH_up
 end
-

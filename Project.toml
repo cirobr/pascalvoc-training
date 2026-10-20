@@ -30,5 +30,5 @@ LibCUDA = {rev = "main", url = "git@github.com:cirobr/LibCUDA.jl.git"}
 LibDataAug = {rev = "main", url = "git@github.com:cirobr/LibDataAug.jl.git"}
 LibFluxML = {rev = "main", url = "git@github.com:cirobr/LibFluxML.jl.git"}
 PascalVocTools = {rev = "main", url = "git@github.com:cirobr/PascalVocTools.jl.git"}
-PreprocessingImages = {rev = "main", url = "git@github.com:cirobr/PreprocessingImages.jl.git"}
+PreprocessingImages = {rev = "v0.0.11", url = "git@github.com:cirobr/PreprocessingImages.jl.git"}
 TinyMachines = {rev = "v0.6.0", url = "https://github.com/cirobr/TinyMachines.jl.git"}

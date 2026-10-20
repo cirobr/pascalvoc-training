@@ -72,12 +72,17 @@ const imagesize = (500,500)   # original size
 const framesize = (256,256)   # resized size
 const classnrs  = pv.class_numbers   # 0:20
 const C = length(classnrs)
-Cin = 3
 
 
 # custom functions
-function get_image(path::String)
-      return Images.load(expanduser(path)) .|> RGB{N0f8}        # original size
+# Cin = 3; colorflag = true
+Cin = 1; colorflag = false
+function get_image(path::String; color::Bool=true)
+      if color
+            return Images.load(expanduser(path)) .|> RGB{N0f8}
+      else
+            return Images.load(expanduser(path)) .|> Gray{N0f8}
+      end
 end
 
 # Pascal VOC mask PNG to integers conversion
@@ -87,11 +92,15 @@ function get_mask(path::String)
       return Images.load(expanduser(path)) |> mask->to_ids(mask) .|> Int16
 end
 
-function convert_image2tensor(img::AbstractMatrix{<:Color{N0f8}})
-      return Images.channelview(img) |>       # CHW
-            x -> permutedims(x, (2,3,1)) |>   # HWC
-            x -> (x .- means) ./ (stds) .|>   # per channel normalization
-            Float32
+function convert_image2tensor(img::AbstractMatrix{<:Color{N0f8}}; color::Bool=true)
+      if color
+            img_f = Images.channelview(RGB.(img))
+            img_f = permutedims(img_f, (2,3,1))
+      else
+            img_f = Images.channelview(Gray.(img))
+      end
+
+      return (img_f .- means) ./ (stds) .|> Float32
 end
 
 function convert_mask2tensor(mask::AbstractMatrix{Int16})
@@ -197,10 +206,15 @@ function apply_data_augmentation(
       return la.unwrap_pair(img_wrap, mask_wrap; classnrs=classnrs)   # (aug img, aug mask)
 end
 
-Xs = Array{RGB{N0f8}}(undef, (framesize...,Ntrain))
+Xs = nothing
+if colorflag
+      Xs = Array{RGB{N0f8}}(undef, (framesize...,Ntrain))
+else
+      Xs = Array{Gray{N0f8}}(undef, (framesize...,Ntrain))
+end
 ys = Array{Bool,4}(undef, (framesize...,C,Ntrain))
 FLoops.@floop for i in 1:Ntrain
-      img = get_image(expanduser(dftrain.X[i]))
+      img = get_image(expanduser(dftrain.X[i]); color=colorflag)
       mask = get_mask(expanduser(dftrain.y[i]))
       img, mask = apply_data_augmentation(img, mask;
                         intensity_tfm=intensity_validpipe,
@@ -215,13 +229,13 @@ end
 
 # normalization parameters
 function get_normalization_params(x::AbstractArray{<:Color{N0f8}})
-      xf = channelview(x)   # CHWN
-      if ndims(xf) == 2
-            xf = reshape(xf, (size(xf)...,1))
+      xf = channelview(x)   # ndims==4 => CHWN; ndims==3 => HWN
+      if ndims(xf) == 3
+            xf = reshape(xf, (1,size(xf)...)) # add channel dimension for gray
       end
       dims = (2,3,4)
-      μs = mean(xf, dims=dims) |> x -> dropdims(x, dims=dims) .|> Float32
-      σs = std(xf, dims=dims)  |> x -> dropdims(x, dims=dims) .|> Float32
+      μs = mean(xf, dims=dims) |> x->dropdims(x, dims=dims) .|> Float32
+      σs = std(xf, dims=dims)  |> x->dropdims(x, dims=dims) .|> Float32
       return μs, σs
 end
 
@@ -230,8 +244,10 @@ means = means .|> Float32 |> x->trunc.(x, digits=6)
 stds  = stds  .|> Float32 |> x->trunc.(x, digits=6)
 @show means
 @show stds
-means = reshape(means, (1,1,3))
-stds  = reshape(stds,  (1,1,3))
+if colorflag
+      means = reshape(means, (1,1,3))
+      stds  = reshape(stds,  (1,1,3))
+end
 @info "normalization parameters OK"
 
 # class frequencies and weights
@@ -261,7 +277,7 @@ Flux.numobs(d::PascalVocDataset) = nrow(d.df)
 function Flux.getobs(d::PascalVocDataset, i::Int)
     row = d.df[i, :]
     
-    img  = get_image(expanduser(row.X))
+    img  = get_image(expanduser(row.X); color=colorflag)
     mask = get_mask(expanduser(row.y))
     
     img, mask = apply_data_augmentation(img, mask;
@@ -269,11 +285,10 @@ function Flux.getobs(d::PascalVocDataset, i::Int)
                   geometric_tfm = d.geometric_tfm,
                   classnrs=classnrs,
     )
-    
-    X_float = convert_image2tensor(img)
+
+    X_float = convert_image2tensor(img; color=colorflag)
     X = apply_channels_augmentation(X_float; activate=true) # default false (no augmentation)
     y = convert_mask2tensor(mask)
-
     
     return (X, y)
 end

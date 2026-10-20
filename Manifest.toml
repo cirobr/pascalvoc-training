@@ -2,7 +2,7 @@
 
 julia_version = "1.13.2"
 manifest_format = "2.1"
-project_hash = "c60f9e209c72cab21536aed38f4f7766693be0be"
+project_hash = "7ff2b16acace49b95f1eac91950c0ece8ae5b584"
 
 [[deps.ADTypes]]
 deps = ["PrecompileTools"]
@@ -2032,8 +2032,8 @@ version = "1.6.1"
 
 [[deps.PreprocessingImages]]
 deps = ["Colors", "Images", "Interpolations", "Statistics"]
-git-tree-sha1 = "02b3173bbd1fb285c1c26ac4438efc1d6de187cf"
-repo-rev = "main"
+git-tree-sha1 = "d7c8b8410fbda7c16eded48895bbb189b54f4c63"
+repo-rev = "v0.0.11"
 repo-url = "git@github.com:cirobr/PreprocessingImages.jl.git"
 uuid = "6a52935f-723c-4a2a-832b-626b8fc4f182"
 version = "0.0.11"
