@@ -102,8 +102,9 @@ function convert_mask2tensor(mask::AbstractMatrix{Int16})
             # Float32
 end
 
-C_aug = 0; ch_aug_flag = false
-# C_aug = 4; ch_aug_flag = true
+C_aug = 0
+# C_aug = 4
+ch_aug_flag =  C_aug > 0 ? true : false
 function apply_channels_augmentation(x::AbstractArray; activate::Bool=true)
       if !activate   return x   end          # pass-through
       # augmentation
