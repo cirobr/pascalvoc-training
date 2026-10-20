@@ -1,6 +1,6 @@
 """
 Author: cirobr@GitHub
-Date: 18-Sep-2026
+Date: 20-Oct-2026
 
 Template for training vision models.
 """
@@ -56,12 +56,12 @@ import Interpolations: BSpline
 # private libs
 using LibFluxML
 import LibFluxML: acc_score, f1_score, iou_score, per_class_iou   # metrics
-using LibDataAug
+using LibDataAug; const la=LibDataAug
 import LibDataAug: apply_data_augmentation
 using PreprocessingImages; const p=PreprocessingImages
 import PreprocessingImages: get_normalization_params
 using PascalVocTools; const pv=PascalVocTools
-# include("functions.jl")   # experimental functions
+include("../library/channel_augmentation_functions.jl")
 
 using LibCUDA
 LibCUDA.cleangpu()
@@ -72,26 +72,39 @@ const imagesize = (500,500)   # original size
 const framesize = (256,256)   # resized size
 const classnrs  = pv.class_numbers   # 0:20
 const C = length(classnrs)
-Cin = 3
+Cin = 3; colorflag = true   # color input images
+# Cin = 1; colorflag = false   # gray input images
 
 
 # custom functions
-function get_image(path)
-      return Images.load(expanduser(path)) .|> RGB{N0f8}        # original size
+function get_image(path::String; color::Bool=true)
+      if color
+            return Images.load(expanduser(path)) .|> RGB{N0f8}
+      else
+            return Images.load(expanduser(path)) .|> Gray{N0f8}
+      end
 end
 
 # Pascal VOC mask PNG to integers conversion
 to_ids(mask) = mask.index
 
-function get_mask(path)
+function get_mask(path::String)
       return Images.load(expanduser(path)) |> mask->to_ids(mask) .|> Int16
 end
 
-function convert_image2tensor(img::AbstractMatrix{RGB{N0f8}})
-      return Images.channelview(img) |>       # CHW
-            x -> permutedims(x, (2,3,1)) |>   # HWC
-            x -> (x .- means) ./ (stds) .|>   # per channel normalization
-            Float32
+normalize_tensor(x) = (x .- means) ./ (stds)
+
+function convert_image2tensor(img::AbstractMatrix{<:Color}; color::Bool=true)
+      if color
+            img_f = Images.channelview(RGB.(img))        # CHW
+            img_f = permutedims(img_f, (2,3,1))          # HWC
+      else
+            img_f = Images.channelview(Gray.(img))       # HW
+            img_f = reshape(img_f, (size(img_f)...,1))   # HWC
+      end
+
+      img_f = normalize_tensor(img_f) .|> Float32
+      return img_f
 end
 
 function convert_mask2tensor(mask::AbstractMatrix{Int16})
@@ -100,62 +113,15 @@ function convert_mask2tensor(mask::AbstractMatrix{Int16})
             # Float32
 end
 
-"""
-Convert Float32,3 array to Float32 matrix (i.e., color to gray)
-"""
-function colorf32_to_grayf32(X::AbstractArray{T,3}) where T
-      Xgray = p.array2image(X) .|> Gray
-      return channelview(Xgray)
-end
-
-"""
-Add horizontal+vertical gradient detail channel
-"""
-function add_grads_channel(X::AbstractArray{T,3}) where T
-      Xfloat = colorf32_to_grayf32(X)
-      Xgrad  = p.transf_grad(Xfloat)
-      return reshape(Xgrad, size(Xgrad)..., 1)
-end
-
-"""
-Add high-frequency detail channels from a 1-level DWT.
-"""
-function add_wavelet_channels(X::AbstractArray{T,3}; 
-                              wavelet = wavelet(WT.haar), 
-                              level::Int = 1,
-) where T
-      Xfloat = colorf32_to_grayf32(X)
-      H, W = size(Xfloat)
-
-      # 1-level (or multi-level) DWT on this channel
-      coeffs = dwt(Xfloat, wavelet, level)
-
-      # Extract the three detail quadrants (half resolution)
-      half_h, half_w = size(coeffs) .÷ 2
-      LH = coeffs[1:half_h, half_w+1:end]          # or adjust indices if needed
-      HL = coeffs[half_h+1:end, 1:half_w]
-      HH = coeffs[half_h+1:end, half_w+1:end]
-
-      # Upsample each detail map back to original size
-      LH_up = imresize(LH, (H, W); method = BSpline(Linear()))
-      HL_up = imresize(HL, (H, W); method = BSpline(Linear()))
-      HH_up = imresize(HH, (H, W); method = BSpline(Linear()))
-
-      # Optionally normalize / scale
-      LH_up ./= maximum(abs, LH_up) + eps(T)
-      HL_up ./= maximum(abs, HL_up) + eps(T)
-      HH_up ./= maximum(abs, HH_up) + eps(T)
-
-      return LH_up, HL_up, HH_up
-end
-
-function apply_channels_augmentation(X::AbstractArray; activate::Bool=true)
-      if !activate   return X   end          # pass-through
+Caug = 0; ch_aug_flag = false
+# Caug = 4; ch_aug_flag = true
+function apply_channels_augmentation(x::AbstractArray; activate::Bool=true)
+      if !activate   return x   end          # pass-through
       # augmentation
-      Xg = add_grads_channel(X)              # 1-ch gradient
-      LH, HL, HH = add_wavelet_channels(X)   # 3-ch wavelet transformation
+      Xg = add_grads_channel(x)              # 1-ch gradient
+      LH, HL, HH = add_wavelet_channels(x)   # 3-ch wavelet transformation
 
-      Xout = cat(X, Xg, LH, HL, HH; dims=3)
+      Xout = cat(x, Xg, LH, HL, HH; dims=3)
       return Xout
 end
 
@@ -231,10 +197,15 @@ Nvalid = size(dfvalid, 1)
 
 
 # calculate normalization parameters and class frequencies
-Xs = Array{RGB{N0f8}}(undef, (framesize...,Ntrain))
+Xs = nothing
+if colorflag
+      Xs = Array{RGB{N0f8}}(undef, (framesize...,Ntrain))
+else
+      Xs = Array{Gray{N0f8}}(undef, (framesize...,Ntrain))
+end
 ys = Array{Bool,4}(undef, (framesize...,C,Ntrain))
 FLoops.@floop for i in 1:Ntrain
-      img = get_image(expanduser(dftrain.X[i]))
+      img = get_image(expanduser(dftrain.X[i]); color=colorflag)
       mask = get_mask(expanduser(dftrain.y[i]))
       img, mask = apply_data_augmentation(img, mask;
                         intensity_tfm=intensity_validpipe,
@@ -253,8 +224,10 @@ means = means .|> Float32 |> x->trunc.(x, digits=6)
 stds  = stds  .|> Float32 |> x->trunc.(x, digits=6)
 @show means
 @show stds
-means = reshape(means, (1,1,3))
-stds  = reshape(stds,  (1,1,3))
+if colorflag
+      means = reshape(means, (1,1,3))
+      stds  = reshape(stds,  (1,1,3))
+end
 @info "normalization parameters OK"
 
 # class frequencies and weights
@@ -279,14 +252,12 @@ struct PascalVocDataset
 end
 
 # Interface
-Cin = Cin + 4   # adjust for the number of augmented input channels
-
 Flux.numobs(d::PascalVocDataset) = nrow(d.df)
 
 function Flux.getobs(d::PascalVocDataset, i::Int)
     row = d.df[i, :]
     
-    img  = get_image(expanduser(row.X))
+    img  = get_image(expanduser(row.X); color=colorflag)
     mask = get_mask(expanduser(row.y))
     
     img, mask = apply_data_augmentation(img, mask;
@@ -294,11 +265,10 @@ function Flux.getobs(d::PascalVocDataset, i::Int)
                   geometric_tfm = d.geometric_tfm,
                   classnrs=classnrs,
     )
-    
-    X_float = convert_image2tensor(img)
-    X = apply_channels_augmentation(X_float; activate=true) # default false (no augmentation)
-    y = convert_mask2tensor(mask)
 
+    X_tensor = convert_image2tensor(img; color=colorflag) # Float32,3
+    X = apply_channels_augmentation(X_tensor; activate=ch_aug_flag)
+    y = convert_mask2tensor(mask)
     
     return (X, y)
 end
@@ -351,7 +321,7 @@ end
 edrops=(0.00, 0.10, 0.15, 0.20, 0.30)
 ddrops=(0.00, 0.05, 0.10, 0.15)
 
-modelcpu = unet5(Cin,C; activation=leakyrelu, edrops=edrops, ddrops=ddrops)
+modelcpu = unet5(Cin+Caug,C; activation=leakyrelu, edrops=edrops, ddrops=ddrops)
 # fpfn = "../2.baseline/models/dfl_2e-3_part2/bestmodel.jld2"
 # LibFluxML.loadModelState!(fpfn, modelcpu)
 # @info "model loaded from $fpfn"
@@ -568,8 +538,8 @@ mv(expanduser(modelsfolder) * "model.jld2", expanduser(modelsfolder) * "bestmode
 
 
 # cleanup
-# modelcpu = nothing
-# model    = nothing
+modelcpu = nothing
+model    = nothing
 LibCUDA.cleangpu()
 @info "*** Project $( basename(@__FILE__) ) finished ***"
 println()
