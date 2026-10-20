@@ -17,8 +17,8 @@ debugflag     = true
 
 ### projects
 scripts = [
-    # "train_gray.jl",
-    "train.jl",
+    "train_gray_noaug.jl",
+    "train_gray_aug.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
