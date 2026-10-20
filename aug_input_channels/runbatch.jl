@@ -8,17 +8,18 @@ Template for executing multiple scripts in series.
 
 ### arguments
 envpath       = "../"
-cudadevice    = 0
+cudadevice    = 1
 epochs        = 500
 minibatchsize = 6
 accum_steps   = 2
-debugflag     = true
+debugflag     = false
 
 
 ### projects
 scripts = [
     "train_gray_noaug.jl",
     "train_gray_aug.jl",
+    "train_color_aug.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
