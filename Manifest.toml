@@ -1429,7 +1429,7 @@ version = "8.22.0+0"
 
 [[deps.LibDataAug]]
 deps = ["Colors", "DataAugmentation", "OffsetArrays"]
-git-tree-sha1 = "04e4422ebf212f18ce2d948d0faf6c98200a1e0e"
+git-tree-sha1 = "0db2ce1d9a0b9ee2e4dfdb6bf1df76c030c1feb7"
 repo-rev = "main"
 repo-url = "git@github.com:cirobr/LibDataAug.jl.git"
 uuid = "8ce57647-ee5c-43be-a4d7-4c390306d9e9"

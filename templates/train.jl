@@ -1,6 +1,6 @@
 """
 Author: cirobr@GitHub
-Date: 20-Oct-2026
+Date: 21-Oct-2026
 
 Template for training vision models.
 """
@@ -9,12 +9,12 @@ Template for training vision models.
 cd(@__DIR__)
 
 ### arguments
-envpath       = "../"
-cudadevice    = 0
-epochs        = 500
-minibatchsize = 6
-accum_steps   = 2
-debugflag     = false
+# envpath       = "../"
+# cudadevice    = 0
+# epochs        = 500
+# minibatchsize = 6
+# accum_steps   = 2
+# debugflag     = false
 
 
 ### libs
@@ -253,8 +253,6 @@ function Flux.getobs(d::PascalVocDataset, i::Int)
                         classnrs=classnrs,
       )
 
-      # ATTENTION: img after transformation is RGB, even if the input image is Gray
-      img = colorflag ? RGB.(img) : Gray.(img)
       X_tensor = convert_image2tensor(img)
       X = apply_channels_augmentation(X_tensor; activate=ch_aug_flag)
       y = convert_mask2tensor(mask)
