@@ -74,7 +74,7 @@ const classnrs  = pv.class_numbers   # 0:20
 const C_out = length(classnrs)
 C_in = 3
 # C_in = 1
-colorflag =  C_in > 1 ? true : false
+colorflag =  C_in == 3 ? true : false
 
 
 # custom functions
