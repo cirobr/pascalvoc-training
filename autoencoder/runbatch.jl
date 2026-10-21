@@ -9,15 +9,15 @@ Template for executing multiple scripts in series.
 ### arguments
 envpath       = "../"
 cudadevice    = 0
-epochs        = 100
+epochs        = 500
 minibatchsize = 6
 accum_steps   = 2
-debugflag     = true
+debugflag     = false
 
 
 ### projects
 scripts = [
-    "unet5ae.jl",
+    # "unet5ae.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
@@ -28,5 +28,5 @@ tblogs = @. "tblogs/" * scriptfolders * "/"
 @info "Batch started"
 @. rm(models, force=true, recursive=true)
 @. rm(tblogs, force=true, recursive=true)
-@. include(scripts)
+# @. include(scripts)
 @info "Batch completed!"

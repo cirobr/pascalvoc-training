@@ -135,7 +135,7 @@ intensity_trainpipe =
 
 geometric_trainpipe =
       Maybe(FlipX{2}(), 0.5) |>
-      OneOf([CenterResizeCrop(framesize), random_crop, class_crop], [0.1, 0.3, 0.6])
+      OneOf([CenterResizeCrop(framesize), random_crop, class_crop], [0.1, 0.1, 0.8])
 
 intensity_validpipe = Identity()
 geometric_validpipe = CenterResizeCrop(framesize)
@@ -359,8 +359,9 @@ end
 
 
 # optimizer & scheduler
-η       = 2e-3
-# final_η = 5e-5
+lr  = 1e-4
+# lr2 = 3e-3
+# lr3 = 5e-5
 β  = (0.9, 0.999)
 λ  = 1e-5
 # cn = 1.0    # clip norm
@@ -370,18 +371,20 @@ opt = OptimiserChain(
       Flux.AccumGrad(accum_steps),
       # Flux.ClipNorm(cn),
       # Flux.ClipGrad(cg),
-      Flux.AdamW(η, β, λ),
+      Flux.AdamW(lr, β, λ),
       # Flux.Adam(η, β),
 )
 # opt_mp = Optimisers.MixedPrecision(Float16, opt)
 optimizerState = Flux.setup(opt, model)
 # Flux.freeze!(optimizerState.encoder)
 
-# T1 = 200
-# T2 = 500 - T1
-# cosine_part   = CosAnneal(l0=η, l1=final_η, period=T1, restart=false)
-# constant_part = final_η
-# scheduler = Sequence(cosine_part => T1, constant_part => T2)
+# T1 = 8
+# T2 = 150 - T1
+# T3 = 500 - (T1+T2)
+# raising_part  = Triangle(l0=lr, l1=lr2, period=2*T1) # 1/2 period triangle
+# cosine_part   = CosAnneal(l0=lr2, l1=lr3, period=T2, restart=false)
+# constant_part = lr3
+# scheduler = Sequence(raising_part => T1, cosine_part => T2, constant_part => T3)
 @info "optimizer OK"
 
 

@@ -298,6 +298,17 @@ valid_loader = Flux.DataLoader(valid_dataset,
 @info "data loaders OK"
 
 
+# autoencoder model
+edrops=(0.00, 0.10, 0.15, 0.20, 0.30)
+ddrops=(0.00, 0.05, 0.10, 0.15)
+
+modelcpu = unet5ae(3,3; activation=leakyrelu, edrops=edrops, ddrops=ddrops)
+fpfn = "../autoencoder/models/unet5ae/bestmodel.jld2"
+LibFluxML.loadModelState!(fpfn, modelcpu)
+model_state = Flux.state(modelcpu.encoder)
+@info "autoencoder loaded from $fpfn"
+
+
 ### model
 function evaluate_model(model, X, y)
       yhat = model(X)
@@ -311,9 +322,10 @@ edrops=(0.00, 0.10, 0.15, 0.20, 0.30)
 ddrops=(0.00, 0.05, 0.10, 0.15)
 
 modelcpu = unet5(C_in+C_aug, C_out; activation=leakyrelu, edrops=edrops, ddrops=ddrops)
-# fpfn = "../2.baseline/models/dfl_2e-3_part2/bestmodel.jld2"
+fpfn = "../autoencoder2.baseline/models/dfl_2e-3_part2/bestmodel.jld2"
 # LibFluxML.loadModelState!(fpfn, modelcpu)
 # @info "model loaded from $fpfn"
+Flux.loadmodel!(modelcpu.encoder, model_state)
 model = modelcpu |> dev
 @info "model OK"
 
@@ -376,7 +388,7 @@ opt = OptimiserChain(
 )
 # opt_mp = Optimisers.MixedPrecision(Float16, opt)
 optimizerState = Flux.setup(opt, model)
-# Flux.freeze!(optimizerState.encoder)
+Flux.freeze!(optimizerState.encoder)
 
 T1 = 8
 T2 = epochs - T1
@@ -458,6 +470,7 @@ validlosses = []
 # for epoch in 1:epochs
 for (eta, epoch) in zip(scheduler, 1:epochs)
       LibCUDA.garbage_collection()
+      if epoch == 5   Flux.thaw!(optimizerState)   end
 
       @printf "*** Epoch %d/%d ***\n" epoch epochs
       Flux.adjust!(optimizerState, eta)

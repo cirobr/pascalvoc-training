@@ -8,7 +8,7 @@ Template for executing multiple scripts in series.
 
 ### arguments
 envpath       = "../"
-cudadevice    = 0
+cudadevice    = 1
 epochs        = 500
 minibatchsize = 6
 accum_steps   = 2
