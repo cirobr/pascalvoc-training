@@ -40,7 +40,7 @@ using OffsetArrays
 using DataFrames
 using MLUtils
 using ParameterSchedulers
-import ParameterSchedulers: Sequence, CosAnneal
+import ParameterSchedulers: Sequence, CosAnneal, Triangle
 using Random
 using CSV
 using JLD2
@@ -135,7 +135,7 @@ intensity_trainpipe =
 
 geometric_trainpipe =
       Maybe(FlipX{2}(), 0.5) |>
-      OneOf([CenterResizeCrop(framesize), random_crop, class_crop], [0.1, 0.3, 0.6])
+      OneOf([CenterResizeCrop(framesize), random_crop, class_crop], [0.1, 0.1, 0.8])
 
 intensity_validpipe = Identity()
 geometric_validpipe = CenterResizeCrop(framesize)
@@ -335,10 +335,11 @@ loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.tra
 # loss functions
 function trainLossFunction(model,X,y)
       yhat, y = evaluate_model(model, X, y)
-      return LibFluxML.dice_loss(yhat, y;
+      return LibFluxML.ce_loss(yhat, y;
                   logits=true,
-                  include_background=true,
+                  include_background=false,
                   exclude_voids=true,
+                  weights=train_weights,
                   reduction=:mean,
                   device=dev,
       )
@@ -358,8 +359,9 @@ end
 
 
 # optimizer & scheduler
-η       = 5e-3
-# final_η = 5e-5
+lr = 1e-4
+lr2 = 3e-3
+lr3 = 5e-5
 β  = (0.9, 0.999)
 λ  = 1e-5
 # cn = 1.0    # clip norm
@@ -369,19 +371,27 @@ opt = OptimiserChain(
       Flux.AccumGrad(accum_steps),
       # Flux.ClipNorm(cn),
       # Flux.ClipGrad(cg),
-      Flux.AdamW(η, β, λ),
+      Flux.AdamW(lr, β, λ),
       # Flux.Adam(η, β),
 )
 # opt_mp = Optimisers.MixedPrecision(Float16, opt)
 optimizerState = Flux.setup(opt, model)
 # Flux.freeze!(optimizerState.encoder)
 
-# T1 = 200
-# T2 = 500 - T1
-# cosine_part   = CosAnneal(l0=η, l1=final_η, period=T1, restart=false)
+T1 = 8
+T2 = epochs - T1
+raising_part = Triangle(l0=lr, l1=lr2, period=2*T1) # 1/2 period triangle
+cosine_part  = CosAnneal(l0=lr2, l1=lr3, period=T2, restart=false)
 # constant_part = final_η
-# scheduler = Sequence(cosine_part => T1, constant_part => T2)
+scheduler = Sequence(raising_part => T1, cosine_part => T2)
 @info "optimizer OK"
+
+# test schedule
+# for (eta, epoch) in zip(scheduler, 1:20)
+#       @printf "*** Epoch %d/%d ***\n" epoch epochs
+#       @printf "Learning rate: %.3e \n\n" eta
+# end
+# @assert false
 
 
 # one-number metrics
@@ -445,13 +455,13 @@ LibCUDA.cleangpu()
 reset!(logger)
 
 validlosses = []
-for epoch in 1:epochs
-# for (eta, epoch) in zip(scheduler, 1:epochs)
+# for epoch in 1:epochs
+for (eta, epoch) in zip(scheduler, 1:epochs)
       LibCUDA.garbage_collection()
 
       @printf "*** Epoch %d/%d ***\n" epoch epochs
-      # Flux.adjust!(optimizerState, eta)
-      # @printf "Learning rate: %.3e \n\n" eta
+      Flux.adjust!(optimizerState, eta)
+      @printf "Learning rate: %.3e \n\n" eta
 
       # train epoch
       trainloss = trainEpoch!(trainLossFunction, model, train_loader, optimizerState;

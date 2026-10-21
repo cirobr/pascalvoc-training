@@ -17,8 +17,8 @@ debugflag     = false
 
 ### projects
 scripts = [
-    "1.dice.jl",   # include background
-    "2.dfl.jl",    # load #1, no include background
+    "1.wce.jl",
+    "2.dfl.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
