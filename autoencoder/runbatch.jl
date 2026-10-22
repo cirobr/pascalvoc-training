@@ -8,7 +8,7 @@ Template for executing multiple scripts in series.
 
 ### arguments
 envpath       = "../"
-cudadevice    = 0
+cudadevice    = 1
 epochs        = 500
 minibatchsize = 6
 accum_steps   = 2
@@ -18,7 +18,8 @@ debugflag     = false
 ### projects
 scripts = [
     # "unet5ae.jl",
-    "unet5ae_2.jl",
+    # "unet5ae_2.jl",
+    "unet5ae_3.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
