@@ -18,6 +18,7 @@ debugflag     = false
 ### projects
 scripts = [
     # "unet5ae.jl",
+    "unet5ae_2.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
@@ -28,5 +29,5 @@ tblogs = @. "tblogs/" * scriptfolders * "/"
 @info "Batch started"
 @. rm(models, force=true, recursive=true)
 @. rm(tblogs, force=true, recursive=true)
-# @. include(scripts)
+@. include(scripts)
 @info "Batch completed!"
