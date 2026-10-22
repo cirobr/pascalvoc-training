@@ -12,14 +12,14 @@ cudadevice    = 1
 epochs        = 500
 minibatchsize = 6
 accum_steps   = 2
-debugflag     = false
+debugflag     = true
 
 
 ### projects
 scripts = [
-    # "unet5ae.jl",     # mse
-    # "unet5ae_3.jl",   # mse_sigmoid
-    "unet5ae_mae.jl",
+    "unet5ae_mse_logits.jl",
+    "unet5ae_mse_sigmoid.jl",
+    "unet5ae_mae_logits.jl",
     "unet5ae_mae_sigmoid.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]

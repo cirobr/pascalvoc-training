@@ -55,7 +55,7 @@ import Interpolations: BSpline
 
 # private libs
 using LibFluxML
-import LibFluxML: make_ssim_conv, ssim   # metrics
+import LibFluxML: make_ssim_conv, ssim, psnr   # metrics
 using LibDataAug
 import LibDataAug: apply_img_augmentation
 using PreprocessingImages; const p=PreprocessingImages
@@ -348,8 +348,14 @@ function ssim_score(model,X,y)
       return ssim(yhat, y; SSIM_CONV=ssim_conv)
 end
 
+function psnr_score(model,X,y)
+      yhat, y = evaluate_model(model,X,y)
+      return psnr(yhat, y)
+end
+
 metrics = [
       ssim_score,
+      psnr_score,
 ]
 @info "metrics OK"
 
