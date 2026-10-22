@@ -17,9 +17,10 @@ debugflag     = false
 
 ### projects
 scripts = [
-    # "unet5ae.jl",
-    # "unet5ae_2.jl",
-    "unet5ae_3.jl",
+    # "unet5ae.jl",     # mse
+    # "unet5ae_3.jl",   # mse_sigmoid
+    "unet5ae_mae.jl",
+    "unet5ae_mae_sigmoid.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 

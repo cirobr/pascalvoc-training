@@ -56,8 +56,8 @@ import Interpolations: BSpline
 # private libs
 using LibFluxML
 import LibFluxML: make_ssim_conv, ssim   # metrics
-using LibDataAug; la=LibDataAug
-# import LibDataAug: apply_data_augmentation
+using LibDataAug
+import LibDataAug: apply_img_augmentation
 using PreprocessingImages; const p=PreprocessingImages
 import PreprocessingImages: get_normalization_params
 using PascalVocTools; const pv=PascalVocTools
@@ -83,43 +83,10 @@ function get_image(path::String)
       return colorflag ? RGB{N0f8}.(img) : Gray{N0f8}.(img)
 end
 
-# Pascal VOC mask PNG to integers conversion
-# to_ids(mask) = mask.index
-
-# function get_mask(path::String)
-#       return Images.load(expanduser(path)) |> mask->to_ids(mask) .|> Int16
-# end
-
 normalize_tensor(x) = (x .- means) ./ (stds)
 
 function convert_image2tensor(img::AbstractMatrix{<:Color})
       return p.image2Float32(img) |> x->normalize_tensor(x) .|> Float32
-end
-
-# function convert_mask2tensor(mask::AbstractMatrix{Int16})
-#       return LibFluxML.onehot_fast(mask, classnrs; ignore_index=255)
-#             # y -> Flux.label_smoothing(y, 0.05, dims=1) .|>
-#             # Float32
-# end
-
-function wrap_img(img)
-      return Image(img)
-end
-
-function unwrap_img(img_wrap)
-      return OffsetArrays.no_offset_view(img_wrap.data) # .|> RGB{N0f8}
-end
-
-function apply_img_augmentation(
-      img::AbstractArray{<:Color{N0f8}};
-      intensity_tfm,
-      geometric_tfm,
-)
-      img_wrap = wrap_img(img)
-      img_wrap = apply(intensity_tfm, img_wrap)
-      img_wrap = apply(geometric_tfm, img_wrap)
-
-      return unwrap_img(img_wrap)
 end
 
 C_aug = 0
@@ -209,19 +176,14 @@ Nvalid = size(dfvalid, 1)
 # calculate normalization parameters and class frequencies
 T = colorflag ? RGB{N0f8} : Gray{N0f8}
 Xs = Array{T}(undef, (framesize...,Ntrain))
-# ys = Array{Bool,4}(undef, (framesize...,C_out,Ntrain))
 
 FLoops.@floop for i in 1:Ntrain
       img = get_image(expanduser(dftrain.X[i]))
       img = apply_img_augmentation(img;
                         intensity_tfm=intensity_validpipe,
                         geometric_tfm=geometric_validpipe,
-                        # classnrs=classnrs,
       )
       Xs[:,:,i] = img
-      # mask = LibFluxML.onehot_fast(mask, classnrs; ignore_index=255) |>
-      #        y -> reshape(y, size(y)..., 1) .|> Bool
-      # ys[:,:,:,i] = mask
 end
 
 # normalization parameters
@@ -235,19 +197,8 @@ if colorflag
       stds  = reshape(stds,  (1,1,3))
 end
 @info "normalization parameters OK"
-
-# class frequencies and weights
-# cs = LibFluxML.compute_class_counts(ys)
-# cs = cs[2:end]   # ignore background class
-# median_weights, inverse_weights, inverse_squared_weights, inverse_class_weights =
-#       LibFluxML.compute_class_weights(cs)
-
-# train_weights = median_weights .|> Float32 |> dev
-
 Xs = nothing
 ys = nothing
-# @info "loss weights OK"
-# @assert false
 
 
 # data loading
@@ -267,15 +218,10 @@ function Flux.getobs(d::PascalVocDataset, i::Int)
       img = apply_img_augmentation(img;
                         intensity_tfm = d.intensity_tfm,
                         geometric_tfm = d.geometric_tfm,
-                        # classnrs=classnrs,
       )
 
-      # ATTENTION: img after transformation is RGB, even if the input image is Gray
-      # img = colorflag ? RGB.(img) : Gray.(img)
       X_tensor = convert_image2tensor(img)
       X = apply_channels_augmentation(X_tensor; activate=ch_aug_flag)
-      # y = convert_mask2tensor(mask)
-      
       return (X, X)
 end
 
@@ -327,10 +273,13 @@ end
 edrops=(0.00, 0.10, 0.15, 0.20, 0.30)
 ddrops=(0.00, 0.05, 0.10, 0.15)
 
-modelcpu = unet5ae(C_in+C_aug, C_out; activation=leakyrelu, edrops=edrops, ddrops=ddrops)
-fpfn = "models/unet5ae/bestmodel.jld2"
-LibFluxML.loadModelState!(fpfn, modelcpu)
-@info "model loaded from $fpfn"
+modelcpu = Chain(
+      unet5ae(C_in+C_aug, C_out; activation=leakyrelu, edrops=edrops, ddrops=ddrops),
+      Flux.sigmoid
+)
+# fpfn = "models/unet5ae/bestmodel.jld2"
+# LibFluxML.loadModelState!(fpfn, modelcpu[1])
+# @info "model loaded from $fpfn"
 model = modelcpu |> dev
 @info "model OK"
 
@@ -363,9 +312,9 @@ end
 
 
 # optimizer & scheduler
-lr  = 1e-4
-lr2 = 5e-4
-lr3 = 1e-5
+lr = 1e-4
+lr2 = 3e-3
+lr3 = 5e-5
 β  = (0.9, 0.999)
 λ  = 1e-5
 # cn = 1.0    # clip norm
@@ -383,7 +332,7 @@ optimizerState = Flux.setup(opt, model)
 # Flux.freeze!(optimizerState.encoder)
 
 T1 = 8
-T2 = 150 - T1
+T2 = 100 - T1
 T3 = 500 - (T1+T2)
 raising_part  = Triangle(l0=lr, l1=lr2, period=2*T1) # 1/2 period triangle
 cosine_part   = CosAnneal(l0=lr2, l1=lr3, period=T2, restart=false)

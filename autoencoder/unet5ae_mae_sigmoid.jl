@@ -277,9 +277,9 @@ modelcpu = Chain(
       unet5ae(C_in+C_aug, C_out; activation=leakyrelu, edrops=edrops, ddrops=ddrops),
       Flux.sigmoid
 )
-fpfn = "models/unet5ae/bestmodel.jld2"
-LibFluxML.loadModelState!(fpfn, modelcpu[1])
-@info "model loaded from $fpfn"
+# fpfn = "models/unet5ae/bestmodel.jld2"
+# LibFluxML.loadModelState!(fpfn, modelcpu[1])
+# @info "model loaded from $fpfn"
 model = modelcpu |> dev
 @info "model OK"
 
@@ -301,20 +301,20 @@ loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.tra
 # loss functions
 function trainLossFunction(model,X,y)
       yhat, y = evaluate_model(model, X, y)
-      return Flux.mse(yhat, y)
+      return Flux.mae(yhat, y)
 end
 
 function validLossFunction(model,X,y)
       yhat, y = evaluate_model(model, X, y)
-      return Flux.mse(yhat, y)
+      return Flux.mae(yhat, y)
 end
 @info "loss functions OK"
 
 
 # optimizer & scheduler
-lr  = 1e-4
-lr2 = 5e-5
-lr3 = 1e-5
+lr = 1e-4
+lr2 = 3e-3
+lr3 = 5e-5
 β  = (0.9, 0.999)
 λ  = 1e-5
 # cn = 1.0    # clip norm
@@ -334,11 +334,10 @@ optimizerState = Flux.setup(opt, model)
 T1 = 8
 T2 = 100 - T1
 T3 = 500 - (T1+T2)
-# raising_part  = Triangle(l0=lr, l1=lr2, period=2*T1) # 1/2 period triangle
-decay_part    = CosAnneal(l0=lr, l1=lr2, period=T1, restart=false)
+raising_part  = Triangle(l0=lr, l1=lr2, period=2*T1) # 1/2 period triangle
 cosine_part   = CosAnneal(l0=lr2, l1=lr3, period=T2, restart=false)
 constant_part = lr3
-scheduler = Sequence(decay_part => T1, cosine_part => T2, constant_part => T3)
+scheduler = Sequence(raising_part => T1, cosine_part => T2, constant_part => T3)
 @info "optimizer OK"
 
 
