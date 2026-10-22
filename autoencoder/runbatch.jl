@@ -18,11 +18,10 @@ debugflag     = false
 ### projects
 scripts = [
     # "unet5ae_mse_logits.jl",
-    # "unet5ae_mse_sigmoid.jl",          # discard
     # "unet5ae_mae_logits.jl",
-    # "unet5ae_mae_sigmoid.jl",          # discard
     # "unet5ae_dssim_logits.jl",         # best model
     # "unet5ae_dssim_logits_step1.jl",   # no improvement from best
+    "unet5ae_dssim_logits_step2.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
@@ -33,5 +32,5 @@ tblogs = @. "tblogs/" * scriptfolders * "/"
 @info "Batch started"
 @. rm(models, force=true, recursive=true)
 @. rm(tblogs, force=true, recursive=true)
-# @. include(scripts)
+@. include(scripts)
 @info "Batch completed!"
