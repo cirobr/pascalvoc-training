@@ -9,12 +9,12 @@ Template for training vision models.
 cd(@__DIR__)
 
 ### arguments
-# envpath       = "../"
-# cudadevice    = 0
-# epochs        = 500
-# minibatchsize = 6
-# accum_steps   = 2
-# debugflag     = false
+envpath       = "../"
+cudadevice    = 0
+epochs        = 500
+minibatchsize = 6
+accum_steps   = 2
+debugflag     = true
 
 
 ### libs
@@ -57,9 +57,8 @@ import Interpolations: BSpline
 using LibFluxML
 import LibFluxML: acc_score, f1_score, iou_score, per_class_iou   # metrics
 using LibDataAug; const la=LibDataAug
-import LibDataAug: apply_data_augmentation
+# import LibDataAug: apply_data_augmentation
 using PreprocessingImages; const p=PreprocessingImages
-import PreprocessingImages: get_normalization_params
 using PascalVocTools; const pv=PascalVocTools
 include("../library/channel_augmentation_functions.jl")
 
@@ -90,18 +89,6 @@ function get_mask(path::String)
       return Images.load(expanduser(path)) |> mask->to_ids(mask) .|> Int16
 end
 
-normalize_tensor(x) = (x .- means) ./ (stds)
-
-function convert_image2tensor(img::AbstractMatrix{<:Color})
-      return p.image2Float32(img) |> x->normalize_tensor(x) .|> Float32
-end
-
-function convert_mask2tensor(mask::AbstractMatrix{Int16})
-      return LibFluxML.onehot_fast(mask, classnrs; ignore_index=255)
-            # y -> Flux.label_smoothing(y, 0.05, dims=1) .|>
-            # Float32
-end
-
 C_aug = 0
 # C_aug = 4
 ch_aug_flag =  C_aug > 0 ? true : false
@@ -114,7 +101,6 @@ function apply_channels_augmentation(x::AbstractArray; activate::Bool=true)
       Xout = cat(x, Xg, LH, HL, HH; dims=3)
       return Xout
 end
-
 
 # images augmentation
 const short_sides = 320:500
@@ -138,6 +124,7 @@ geometric_trainpipe =
       OneOf([CenterResizeCrop(framesize), random_crop, class_crop], [0.1, 0.1, 0.8])
 
 intensity_validpipe = Identity()
+
 geometric_validpipe = CenterResizeCrop(framesize)
 @info "environment OK"
 
@@ -187,34 +174,30 @@ Nvalid = size(dfvalid, 1)
 
 
 # calculate normalization parameters and class frequencies
-T = colorflag ? RGB{N0f8} : Gray{N0f8}
-Xs = Array{T}(undef, (framesize...,Ntrain))
+Xs = Array{Float32,4}(undef, (framesize...,C_in,Ntrain))
 ys = Array{Bool,4}(undef, (framesize...,C_out,Ntrain))
+include("../library/temp.jl")
 
 FLoops.@floop for i in 1:Ntrain
       img = get_image(expanduser(dftrain.X[i]))
       mask = get_mask(expanduser(dftrain.y[i]))
+      
       img, mask = apply_data_augmentation(img, mask;
-                        intensity_tfm=intensity_validpipe,
-                        geometric_tfm=geometric_validpipe,
-                        classnrs=classnrs,
+                        intensity_tfm = intensity_validpipe,
+                        geometric_tfm = geometric_validpipe,
+                        image_tfm = ImageToTensor(),
+                        mask_tfm  = OneHot(),
       )
-      Xs[:,:,i] = img
-      mask = LibFluxML.onehot_fast(mask, classnrs; ignore_index=255) |>
-             y -> reshape(y, size(y)..., 1) .|> Bool
-      ys[:,:,:,i] = mask
+      Xs[:,:,:,i] = img
+      ys[:,:,:,i] = mask[:,:,1:C_out] .|> Bool
 end
 
 # normalization parameters
 means, stds = get_normalization_params(Xs)
-means = means .|> Float32 |> x->trunc.(x, digits=6)
-stds  = stds  .|> Float32 |> x->trunc.(x, digits=6)
+means = means .|> Float32
+stds  = stds  .|> Float32
 @show means
 @show stds
-if colorflag
-      means = reshape(means, (1,1,3))
-      stds  = reshape(stds,  (1,1,3))
-end
 @info "normalization parameters OK"
 
 # class frequencies and weights
@@ -239,6 +222,9 @@ struct PascalVocDataset
 end
 
 # Interface
+image_to_tensor = ImageToTensor() |> Normalize(means, stds)
+mask_to_tensor  = OneHot()
+
 Flux.numobs(d::PascalVocDataset) = nrow(d.df)
 
 function Flux.getobs(d::PascalVocDataset, i::Int)
@@ -250,13 +236,12 @@ function Flux.getobs(d::PascalVocDataset, i::Int)
       img, mask = apply_data_augmentation(img, mask;
                         intensity_tfm = d.intensity_tfm,
                         geometric_tfm = d.geometric_tfm,
-                        classnrs=classnrs,
+                        image_tfm = image_to_tensor,
+                        mask_tfm  = mask_to_tensor,
       )
 
-      X_tensor = convert_image2tensor(img)
-      X = apply_channels_augmentation(X_tensor; activate=ch_aug_flag)
-      y = convert_mask2tensor(mask)
-      
+      X = apply_channels_augmentation(img; activate=ch_aug_flag)
+      y = mask[:,:,1:C_out] .|> Bool
       return (X, y)
 end
 
@@ -322,7 +307,7 @@ function lossfn(model, X, y)   # loss function for testing purposes only
       return Flux.mse(yhat, y)
 end
 
-(X,y) = first(train_loader)
+(X,y) = first(valid_loader)
 X = X |> dev
 y = y |> dev
 loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.train! >= 0.13.9)
