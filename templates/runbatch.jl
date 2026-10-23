@@ -3,7 +3,6 @@ Author: cirobr@GitHub
 Date: 18-Sep-2026
 
 Template for executing multiple scripts in series.
-    * Each project lives on a separate folder.
 """
 
 ### arguments
