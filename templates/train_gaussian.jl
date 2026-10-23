@@ -1,6 +1,6 @@
 """
 Author: cirobr@GitHub
-Date: 18-Sep-2026
+Date: 23-Oct-2026
 
 Template for training vision models.
 """
@@ -9,12 +9,12 @@ Template for training vision models.
 cd(@__DIR__)
 
 ### arguments
-# envpath       = "../"
-# cudadevice    = 0
-# epochs        = 500
-# minibatchsize = 6
-# accum_steps   = 2
-# debugflag     = true
+envpath       = "../"
+cudadevice    = 0
+epochs        = 500
+minibatchsize = 6
+accum_steps   = 2
+debugflag     = true
 
 
 ### libs
@@ -47,13 +47,18 @@ using JLD2
 using TensorBoardLogger
 using FLoops
 using Printf
-using ProgressBars; const pb=ProgressBars
+using ProgressBars
 import Statistics: mean, minimum, maximum, norm, std, median
+using Wavelets
 
 # private libs
 using LibFluxML
 import LibFluxML: acc_score, f1_score, iou_score, per_class_iou   # metrics
+import PreprocessingImages: get_normalization_params
+using LibDataAug
+import LibDataAug: apply_data_augmentation
 using PascalVocTools; const pv=PascalVocTools
+include("../library/channel_augmentation_functions.jl")
 
 using LibCUDA
 LibCUDA.cleangpu()
@@ -63,46 +68,39 @@ LibCUDA.cleangpu()
 const imagesize = (500,500)   # original size
 const framesize = (256,256)   # resized size
 const classnrs  = pv.class_numbers   # 0:20
-const C = length(classnrs)
+const C_out = length(classnrs)
+C_in = 3
+# C_in = 1
+colorflag =  C_in == 3 ? true : false
 
 
 # custom functions
-function get_image(path)
-      return Images.load(expanduser(path)) .|> RGB{N0f8}        # original size
+function get_image(path::String)
+      img = Images.load(expanduser(path))
+      return colorflag ? RGB{N0f8}.(img) : Gray{N0f8}.(img)
 end
 
 # Pascal VOC mask PNG to integers conversion
 to_ids(mask) = mask.index
 
-function get_mask(path)
+function get_mask(path::String)
       return Images.load(expanduser(path)) |> mask->to_ids(mask) .|> Int16
 end
 
-function convert_image2tensor(img::AbstractMatrix{RGB{N0f8}})
-      return Images.channelview(img) |>       # CHW
-            x -> permutedims(x, (2,3,1)) |>   # HWC
-            x -> (x .- means) ./ (stds) .|>   # per channel normalization
-            Float32
+C_aug = 0
+# C_aug = 4
+ch_aug_flag =  C_aug > 0 ? true : false
+function apply_channels_augmentation(x::AbstractArray; activate::Bool=true)
+      if !activate   return x   end          # pass-through
+      # augmentation
+      Xg = add_grads_channel(x)              # 1-ch gradient
+      LH, HL, HH = add_wavelet_channels(x)   # 3-ch wavelet transformation
+
+      Xout = cat(x, Xg, LH, HL, HH; dims=3)
+      return Xout
 end
 
-function convert_mask2tensor(mask::AbstractMatrix{Int16})
-      return LibFluxML.onehot_fast(mask, classnrs; ignore_index=255)
-            # y -> Flux.label_smoothing(y, 0.05, dims=1) .|>
-            # Float32
-end
-
-function get_normalization_params(x::AbstractArray{RGB{N0f8}})
-      xf = Images.channelview(x)   # CHWN
-      dims = (2,3,4)
-      μs = mean(xf, dims=dims) |> x -> dropdims(x, dims=dims) .|> Float32
-      σs = std(xf, dims=dims)  |> x -> dropdims(x, dims=dims) .|> Float32
-      return μs, σs
-end
-
-
-# augmentation
-include("DataAugmentationCrops.jl")
-
+# images augmentation
 const short_sides = 320:500
 const crop_size = framesize[1]
 
@@ -121,35 +119,11 @@ intensity_trainpipe =
 
 geometric_trainpipe =
       Maybe(FlipX{2}(), 0.5) |>
-      OneOf([CenterResizeCrop(framesize), random_crop, class_crop], [0.1, 0.3, 0.6])
+      OneOf([CenterResizeCrop(framesize), random_crop, class_crop], [0.1, 0.1, 0.8])
 
 intensity_validpipe = Identity()
+
 geometric_validpipe = CenterResizeCrop(framesize)
-
-
-function wrap_pair(img, mask)
-      return Image(img), MaskMulti(mask .+ 1, 1:256)
-end
-
-function unwrap_pair(img_wrap, mask_wrap)
-      img  = OffsetArrays.no_offset_view(img_wrap.data) .|> RGB{N0f8}
-      mask = OffsetArrays.no_offset_view((mask_wrap.data .- 1) .|> Int16)
-      mask = map(v -> v in classnrs ? Int16(v) : Int16(255), mask)
-      return img, mask
-end
-
-function data_augmentation(
-      img::AbstractArray{RGB{N0f8}},
-      mask::AbstractArray{Int16};
-      intensity_tfm,
-      geometric_tfm
-)
-      img_wrap, mask_wrap = wrap_pair(img, mask)
-      img_wrap = apply(intensity_tfm, img_wrap)   # intensity (img only)
-      img_wrap, mask_wrap = apply(geometric_tfm, (img_wrap, mask_wrap))   # geometric (img, mask)
-
-      return unwrap_pair(img_wrap, mask_wrap)   # (aug img, aug mask)
-end
 @info "environment OK"
 
 
@@ -197,60 +171,45 @@ Nvalid = size(dfvalid, 1)
 @info "dataset OK"
 
 
-# get normalization parameters
-Xs = Array{RGB{N0f8}}(undef, (framesize...,Ntrain))
-ys = zeros(Int16, imagesize)
+# calculate normalization parameters and class frequencies
+@info "calculating parameters ..."
+Xs = Array{Float32,4}(undef, (framesize...,C_in,Ntrain))
+ys = Array{Bool,4}(undef, (framesize...,C_out,Ntrain))
+
 FLoops.@floop for i in 1:Ntrain
       img = get_image(expanduser(dftrain.X[i]))
-      mask = ys
-      img, mask = data_augmentation(img, mask;
-                        intensity_tfm=intensity_validpipe,
-                        geometric_tfm=geometric_validpipe,
+      mask = get_mask(expanduser(dftrain.y[i]))
+      
+      img, mask = apply_data_augmentation(img, mask;
+                        intensity_tfm = intensity_validpipe,
+                        geometric_tfm = geometric_validpipe,
+                        image_tfm = ImageToTensor(),
+                        mask_tfm  = OneHot(),
       )
-      Xs[:,:,i] = img
+      Xs[:,:,:,i] = img
+      ys[:,:,:,i] = mask[:,:,1:C_out] .|> Bool
 end
-means, stds = get_normalization_params(Xs)
-Xs = nothing
-ys = nothing
 
-means = means .|> Float32 |> x->trunc.(x, digits=6)
-stds  = stds  .|> Float32 |> x->trunc.(x, digits=6)
+# normalization parameters
+means, stds = get_normalization_params(Xs)
+means = means .|> Float32
+stds  = stds  .|> Float32
 @show means
 @show stds
-means = reshape(means, (1,1,3))
-stds  = reshape(stds,  (1,1,3))
 @info "normalization parameters OK"
 
-
-### (optional) calculate loss weights from class frequencies
-xs = zeros(RGB{N0f8}, imagesize)
-ys = Array{Bool,4}(undef, (framesize...,C,Ntrain))
-
-FLoops.@floop for i in 1:Ntrain
-      img  = xs   # dummy image
-      mask = get_mask(expanduser(dftrain.y[i]))
-
-      img, mask = data_augmentation(img, mask;
-                                    intensity_tfm = intensity_validpipe,
-                                    geometric_tfm = geometric_validpipe,
-      )
-
-      mask = LibFluxML.onehot_fast(mask, classnrs; ignore_index=255) |>
-            y -> reshape(y, size(y)..., 1) .|> Bool
-      ys[:,:,:,i] = mask
-end
-
+# class frequencies and weights
 cs = LibFluxML.compute_class_counts(ys)
-xs = nothing
-ys = nothing
-# @assert false
-
 cs = cs[2:end]   # ignore background class
 median_weights, inverse_weights, inverse_squared_weights, inverse_class_weights =
       LibFluxML.compute_class_weights(cs)
 
 train_weights = median_weights .|> Float32 |> dev
+
+Xs = nothing
+ys = nothing
 @info "loss weights OK"
+# @assert false
 
 
 # data loading
@@ -258,26 +217,33 @@ struct PascalVocDataset
     df::DataFrame
     intensity_tfm
     geometric_tfm
+    image_tfm
+    mask_tfm
 end
 
 # Interface
+image_to_tensor_train = ImageToTensor() |> Normalize(means, stds) |> GaussianNoise()
+image_to_tensor_valid = ImageToTensor() |> Normalize(means, stds)
+mask_to_tensor  = OneHot()
+
 Flux.numobs(d::PascalVocDataset) = nrow(d.df)
 
 function Flux.getobs(d::PascalVocDataset, i::Int)
-    row = d.df[i, :]
+      row = d.df[i, :]
+      
+      img  = get_image(expanduser(row.X))
+      mask = get_mask(expanduser(row.y))
     
-    img  = get_image(expanduser(row.X))
-    mask = get_mask(expanduser(row.y))
-    
-    img, mask = data_augmentation(img, mask;
-                                  intensity_tfm = d.intensity_tfm,
-                                  geometric_tfm = d.geometric_tfm,
-    )
-    
-    X = convert_image2tensor(img)
-    y = convert_mask2tensor(mask)
-    
-    return (X, y)
+      img, mask = apply_data_augmentation(img, mask;
+                        intensity_tfm = d.intensity_tfm,
+                        geometric_tfm = d.geometric_tfm,
+                        image_tfm = d.image_tfm,
+                        mask_tfm  = d.mask_tfm,
+      )
+
+      X = apply_channels_augmentation(img; activate=ch_aug_flag)
+      y = mask[:,:,1:C_out] .|> Bool
+      return (X, y)
 end
 
 # Batch version
@@ -285,16 +251,18 @@ function Flux.getobs(d::PascalVocDataset, idx::AbstractVector{<:Integer})
     [Flux.getobs(d, i) for i in idx]
 end
 
-# Training dataset (with heavy augmentation)
 train_dataset = PascalVocDataset(dftrain,
                               intensity_trainpipe,
                               geometric_trainpipe,
+                              image_to_tensor_train,
+                              mask_to_tensor,
 )
 
-# Validation dataset (light/no augmentation)
 valid_dataset = PascalVocDataset(dfvalid,
                               intensity_validpipe,
                               geometric_validpipe,
+                              image_to_tensor_valid,
+                              mask_to_tensor,
 )
 
 # data loaders
@@ -322,8 +290,14 @@ function evaluate_model(model, X, y)
       return (yhat, y)
 end
 
-modelcpu = UNet(3, C; activation=leakyrelu)
-# fpfn = "models/unet5_4/bestmodel.jld2"
+# paper-faithful:    edrops=(0.0, 0.0, 0.0, 0.0, 0.5), ddrops=(0.0, 0.0, 0.0, 0.0)
+# mild overfitting:  edrops=(0.0, 0.0, 0.10, 0.20, 0.25), ddrops=(0.0, 0.0, 0.10, 0.20)
+# clear overfitting: edrops=(0.05, 0.10, 0.15, 0.20, 0.30), ddrops=(0.00, 0.05, 0.10, 0.15)
+edrops=(0.00, 0.10, 0.15, 0.20, 0.30)
+ddrops=(0.00, 0.05, 0.10, 0.15)
+
+modelcpu = unet5(C_in+C_aug, C_out; activation=leakyrelu, edrops=edrops, ddrops=ddrops)
+# fpfn = "../2.baseline/models/dfl_2e-3_part2/bestmodel.jld2"
 # LibFluxML.loadModelState!(fpfn, modelcpu)
 # @info "model loaded from $fpfn"
 model = modelcpu |> dev
@@ -336,7 +310,7 @@ function lossfn(model, X, y)   # loss function for testing purposes only
       return Flux.mse(yhat, y)
 end
 
-(X,y) = first(train_loader)
+(X,y) = first(valid_loader)
 X = X |> dev
 y = y |> dev
 loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.train! >= 0.13.9)
@@ -347,11 +321,14 @@ loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.tra
 # loss functions
 function trainLossFunction(model,X,y)
       yhat, y = evaluate_model(model, X, y)
-      return LibFluxML.dice_loss(yhat, y;
+      return LibFluxML.dfl(yhat, y;
                   logits=true,
                   include_background=false,
                   exclude_voids=true,
-                  reduction=:sum,
+                  gamma=2.0,
+                  dice_weight=0.2,
+                  focal_weight=1.0,
+                  reduction=:mean,
                   device=dev,
       )
 end
@@ -362,7 +339,7 @@ function validLossFunction(model,X,y)
                   logits=true,
                   include_background=false,
                   exclude_voids=true,
-                  reduction=:sum,
+                  reduction=:mean,
                   device=dev,
       )
 end
@@ -370,8 +347,9 @@ end
 
 
 # optimizer & scheduler
-η       = 1e-3
-# final_η = 5e-5
+lr  = 1e-4
+# lr2 = 3e-3
+# lr3 = 5e-5
 β  = (0.9, 0.999)
 λ  = 1e-5
 # cn = 1.0    # clip norm
@@ -381,18 +359,20 @@ opt = OptimiserChain(
       Flux.AccumGrad(accum_steps),
       # Flux.ClipNorm(cn),
       # Flux.ClipGrad(cg),
-      Flux.AdamW(η, β, λ),
+      Flux.AdamW(lr, β, λ),
       # Flux.Adam(η, β),
 )
 # opt_mp = Optimisers.MixedPrecision(Float16, opt)
 optimizerState = Flux.setup(opt, model)
 # Flux.freeze!(optimizerState.encoder)
 
-# T1 = 200
-# T2 = 500 - T1
-# cosine_part   = CosAnneal(l0=η, l1=final_η, period=T1, restart=false)
-# constant_part = final_η
-# scheduler = Sequence(cosine_part => T1, constant_part => T2)
+# T1 = 8
+# T2 = 150 - T1
+# T3 = 500 - (T1+T2)
+# raising_part  = Triangle(l0=lr, l1=lr2, period=2*T1) # 1/2 period triangle
+# cosine_part   = CosAnneal(l0=lr2, l1=lr3, period=T2, restart=false)
+# constant_part = lr3
+# scheduler = Sequence(raising_part => T1, cosine_part => T2, constant_part => T3)
 @info "optimizer OK"
 
 
@@ -449,7 +429,7 @@ model_monitor.number_since_best = 10*epochs  # not used
 model_monitor.patience = 10*epochs           # not used
 
 stop_monitor = LibFluxML.EarlyStopper()
-stop_monitor.number_since_best = 15
+stop_monitor.number_since_best = 20   # to bypass noise peaks
 stop_monitor.patience = 5
 
 # training loop

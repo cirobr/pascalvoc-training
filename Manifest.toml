@@ -1429,7 +1429,7 @@ version = "8.22.0+0"
 
 [[deps.LibDataAug]]
 deps = ["Colors", "DataAugmentation", "OffsetArrays"]
-git-tree-sha1 = "f856172c56ac316df8d82264556a529b8c20ca7e"
+git-tree-sha1 = "c5cde2f91cb780cccd8e0bcc930ab52081dc86bb"
 repo-rev = "main"
 repo-url = "git@github.com:cirobr/LibDataAug.jl.git"
 uuid = "8ce57647-ee5c-43be-a4d7-4c390306d9e9"
@@ -1996,7 +1996,7 @@ version = "1.6.1"
 
 [[deps.PreprocessingImages]]
 deps = ["Colors", "Images", "Interpolations", "Statistics"]
-git-tree-sha1 = "4654bccc592589bb793d619074ab9f2be433d91e"
+git-tree-sha1 = "0a823fca3ec150f85d07de00a782badcb715d614"
 repo-rev = "main"
 repo-url = "git@github.com:cirobr/PreprocessingImages.jl.git"
 uuid = "6a52935f-723c-4a2a-832b-626b8fc4f182"
