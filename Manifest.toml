@@ -361,10 +361,10 @@ version = "0.2.2"
 
 [[deps.ChainRules]]
 deps = ["Adapt", "ChainRulesCore", "Distributed", "GPUArraysCore", "IrrationalConstants", "LinearAlgebra", "Random", "RealDot", "SparseArrays", "SparseInverseSubset", "Statistics", "StructArrays"]
-git-tree-sha1 = "1ead3389af17a852800ddace32338fd9a9234d12"
+git-tree-sha1 = "5ee2215c78b25908dfd9199127b2c1025b682834"
 registries = "General"
 uuid = "082447d4-558c-5d27-93f4-14fc19e9eca2"
-version = "1.74.2"
+version = "1.74.3"
 
 [[deps.ChainRulesCore]]
 deps = ["LinearAlgebra"]
@@ -818,10 +818,10 @@ version = "0.8.6"
 
 [[deps.Flux]]
 deps = ["ADTypes", "Adapt", "BFloat16s", "ChainRulesCore", "Compat", "EnzymeCore", "Functors", "GPUArrays", "LinearAlgebra", "MLCore", "MLDataDevices", "MLUtils", "MacroTools", "NNlib", "OneHotArrays", "Optimisers", "Preferences", "ProgressLogging", "Random", "Reexport", "Setfield", "SparseArrays", "SpecialFunctions", "Statistics", "Zygote"]
-git-tree-sha1 = "fa54ad8ee2ff8f94f1371c34b859834467bc154d"
+git-tree-sha1 = "c1bfb350b1155be570ae25c7349c86b0469b967e"
 registries = "General"
 uuid = "587475ba-b771-5e3f-ad9e-33799f191a9c"
-version = "0.16.13"
+version = "0.16.14"
 
     [deps.Flux.extensions]
     FluxAMDGPUExt = "AMDGPU"
@@ -1429,7 +1429,7 @@ version = "8.22.0+0"
 
 [[deps.LibDataAug]]
 deps = ["Colors", "DataAugmentation", "OffsetArrays"]
-git-tree-sha1 = "c5cde2f91cb780cccd8e0bcc930ab52081dc86bb"
+git-tree-sha1 = "7b11a09129d89c6f32fbfb47dced3c83c9dcccb8"
 repo-rev = "main"
 repo-url = "git@github.com:cirobr/LibDataAug.jl.git"
 uuid = "8ce57647-ee5c-43be-a4d7-4c390306d9e9"
@@ -1686,10 +1686,10 @@ version = "2026.8.13"
 
 [[deps.NNlib]]
 deps = ["Adapt", "Atomix", "BFloat16s", "ChainRulesCore", "GPUArraysCore", "KernelAbstractions", "LinearAlgebra", "Random", "ScopedValues", "Statistics"]
-git-tree-sha1 = "c09cf1c9f5db27c0e8d5287045d265b0b07df576"
+git-tree-sha1 = "da4b28b0cff06f0e099d94593812f741625e5c60"
 registries = "General"
 uuid = "872c559c-99b0-510c-b3b7-b6c96a88d5cd"
-version = "0.9.52"
+version = "0.9.53"
 
     [deps.NNlib.extensions]
     NNlibAMDGPUExt = "AMDGPU"
