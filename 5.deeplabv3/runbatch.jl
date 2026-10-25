@@ -16,9 +16,10 @@ Template for executing multiple scripts in series.
 
 ### projects
 scripts = [
-    # "wce.jl",   # weighted, 256x256
-    # "wce2.jl",  # weighted, slower rise, 256x256
-    "wce3.jl"   # weighted, slower rise, 500x500
+    # "wce.jl",    # weighted, 256x256
+    # "wce2.jl",   # weighted, slower rise, 256x256
+    # "wce3.jl",   # weighted, slower rise, 500x500
+    "wce3_2.jl",   # weighted, same rise, 256x256
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 

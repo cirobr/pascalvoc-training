@@ -12,7 +12,7 @@ cd(@__DIR__)
 envpath       = "../"
 cudadevice    = 1
 epochs        = 500
-minibatchsize = 6
+minibatchsize = 4
 accum_steps   = 2
 debugflag     = false
 
@@ -121,6 +121,7 @@ intensity_trainpipe =
 
 geometric_trainpipe =
       Maybe(FlipX{2}(), 0.5) |>
+      Maybe(Rotate(10), 0.5) |>
       # OneOf([CenterResizeCrop(framesize), random_crop, class_crop], [0.1, 0.1, 0.8])
       CenterCrop(framesize)
 
