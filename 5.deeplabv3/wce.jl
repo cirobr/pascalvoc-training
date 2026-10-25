@@ -9,12 +9,12 @@ Template for training vision models.
 cd(@__DIR__)
 
 ### arguments
-# envpath       = "../"
-# cudadevice    = 0
-# epochs        = 500
-# minibatchsize = 6
-# accum_steps   = 2
-# debugflag     = true
+envpath       = "../"
+cudadevice    = 1
+epochs        = 500
+minibatchsize = 8
+accum_steps   = 1
+debugflag     = false
 
 
 ### libs
@@ -352,7 +352,7 @@ lr3 = 5e-5
 # cg = 1.0    # clip grad
 
 opt = OptimiserChain(
-      Flux.AccumGrad(accum_steps),
+      # Flux.AccumGrad(accum_steps),
       # Flux.ClipNorm(cn),
       # Flux.ClipGrad(cg),
       Flux.AdamW(lr, β, λ),

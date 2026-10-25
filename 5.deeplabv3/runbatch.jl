@@ -6,17 +6,19 @@ Template for executing multiple scripts in series.
 """
 
 ### arguments
-envpath       = "../"
-cudadevice    = 0
-epochs        = 500
-minibatchsize = 6
-accum_steps   = 2
-debugflag     = true
+# envpath       = "../"
+# cudadevice    = 1
+# epochs        = 500
+# minibatchsize = 8
+# accum_steps   = 1
+# debugflag     = false
 
 
 ### projects
 scripts = [
-    "wce.jl",
+    # "wce.jl",   # weighted, 256x256
+    # "wce2.jl",  # weighted, slower rise, 256x256
+    "wce3.jl"   # weighted, slower rise, 500x500
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
