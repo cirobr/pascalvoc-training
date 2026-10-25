@@ -2,7 +2,7 @@
 
 julia_version = "1.13.2"
 manifest_format = "2.1"
-project_hash = "ffc96b09f60c80dc48fd2071a1e9e494498072ae"
+project_hash = "1eb527d419e9bab93e5f1ffc70ef8a0f77b9798d"
 
 [[deps.ADTypes]]
 deps = ["PrecompileTools"]
@@ -189,6 +189,12 @@ git-tree-sha1 = "a708326ef8415d0d66c3b2719da68f3f23234f8f"
 registries = "General"
 uuid = "ab4f0b2a-ad5b-11e8-123f-65d77653426b"
 version = "0.6.3"
+
+[[deps.BSON]]
+git-tree-sha1 = "4c3e506685c527ac6a54ccc0c8c76fd6f91b42fb"
+registries = "General"
+uuid = "fbb218c0-5317-5bc6-957e-2ee96dd4b1f0"
+version = "0.3.9"
 
 [[deps.BangBang]]
 deps = ["Accessors", "ConstructionBase", "InitialValues", "LinearAlgebra"]
@@ -631,6 +637,14 @@ deps = ["Printf"]
 uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
 version = "1.11.0"
 
+[[deps.DeepLab]]
+deps = ["Flux", "Metalhead"]
+git-tree-sha1 = "c0a1ede09a145a1e31050f06822eeec60019e9a9"
+repo-rev = "main"
+repo-url = "git@github.com:cirobr/DeepLab.jl.git"
+uuid = "8af1ee66-1bb0-4cc4-8b8b-98ac44bdf12f"
+version = "1.0.0-DEV"
+
 [[deps.DefineSingletons]]
 git-tree-sha1 = "0fba8b706d0178b4dc7fd44a96a92382c9065c2c"
 registries = "General"
@@ -886,10 +900,10 @@ version = "0.2.1"
 
 [[deps.GPUCompiler]]
 deps = ["CompilerCaching", "ExprTools", "InteractiveUtils", "LLVM", "Libdl", "Logging", "PrecompileTools", "Preferences", "REPL", "ScopedValues", "TOML", "Tracy", "UUIDs", "tree_sitter_gcn_jll", "tree_sitter_llvm_jll", "tree_sitter_ptx_jll", "tree_sitter_spirv_jll"]
-git-tree-sha1 = "cff194dd4fd2301f4cc63751606b70a0e189d509"
+git-tree-sha1 = "a0bf9f8bc68408655599da35fbe86b20b543a192"
 registries = "General"
 uuid = "61eb1bfa-7361-4325-ad38-22787b887f55"
-version = "2.16.0"
+version = "2.17.0"
 
     [deps.GPUCompiler.extensions]
     CthulhuExt = "Cthulhu"
@@ -1429,7 +1443,7 @@ version = "8.22.0+0"
 
 [[deps.LibDataAug]]
 deps = ["Colors", "DataAugmentation", "OffsetArrays"]
-git-tree-sha1 = "7b11a09129d89c6f32fbfb47dced3c83c9dcccb8"
+git-tree-sha1 = "eaf80afc27f3e08b6cc56d3ca7521cb872d2f6b4"
 repo-rev = "main"
 repo-url = "git@github.com:cirobr/LibDataAug.jl.git"
 uuid = "8ce57647-ee5c-43be-a4d7-4c390306d9e9"
@@ -1655,6 +1669,17 @@ registries = "General"
 uuid = "626554b9-1ddb-594c-aa3c-2596fe9399a5"
 version = "0.8.1"
 
+[[deps.Metalhead]]
+deps = ["Artifacts", "BSON", "ChainRulesCore", "Flux", "Functors", "JLD2", "LazyArtifacts", "MLUtils", "NNlib", "Random", "Statistics"]
+git-tree-sha1 = "d89c5daad1d59b29796e2c89c4b3c08375072477"
+registries = "General"
+uuid = "dbeba491-748d-5e0e-a39e-b530a07fa0cc"
+version = "0.9.7"
+weakdeps = ["CUDA"]
+
+    [deps.Metalhead.extensions]
+    MetalheadCUDAExt = "CUDA"
+
 [[deps.MicroCollections]]
 deps = ["Accessors", "BangBang", "InitialValues"]
 git-tree-sha1 = "44d32db644e84c75dab479f1bc15ee76a1a3618f"
@@ -1686,10 +1711,10 @@ version = "2026.8.13"
 
 [[deps.NNlib]]
 deps = ["Adapt", "Atomix", "BFloat16s", "ChainRulesCore", "GPUArraysCore", "KernelAbstractions", "LinearAlgebra", "Random", "ScopedValues", "Statistics"]
-git-tree-sha1 = "da4b28b0cff06f0e099d94593812f741625e5c60"
+git-tree-sha1 = "dfb4da25dff1916b7ff0fc3317bcb0a42ca02da0"
 registries = "General"
 uuid = "872c559c-99b0-510c-b3b7-b6c96a88d5cd"
-version = "0.9.53"
+version = "0.9.54"
 
     [deps.NNlib.extensions]
     NNlibAMDGPUExt = "AMDGPU"
@@ -1723,10 +1748,10 @@ version = "6.4.2"
 
 [[deps.NVPTX_LLVM_Backend_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Zlib_jll"]
-git-tree-sha1 = "4e4913b46c28b0e09ecd11a357fb2b8632504d27"
+git-tree-sha1 = "839f120ee970f8216f91034ce8e0436bf5b04ce3"
 registries = "General"
 uuid = "ef6e0fe3-e6ef-59c0-bde6-4989574699e0"
-version = "23.1.2+1"
+version = "23.1.2+2"
 
 [[deps.NVTX]]
 deps = ["JuliaNVTXCallbacks_jll", "Libdl", "NVTX_jll"]

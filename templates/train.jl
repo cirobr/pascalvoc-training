@@ -1,6 +1,6 @@
 """
 Author: cirobr@GitHub
-Date: 23-Oct-2026
+Date: 25-Oct-2026
 
 Template for training vision models.
 """
@@ -33,7 +33,9 @@ else
       @warn "gpu disabled: using cpu."
 end
 
-using TinyMachines
+using DeepLab
+using Metalhead
+# using TinyMachines
 using Images
 using DataAugmentation
 using OffsetArrays
@@ -183,8 +185,8 @@ FLoops.@floop for i in 1:Ntrain
       img, mask = apply_data_augmentation(img, mask;
                         intensity_tfm = intensity_validpipe,
                         geometric_tfm = geometric_validpipe,
-                        image_tfm = ImageToTensor(),
-                        mask_tfm  = OneHot(),
+                        image_to_tensor_tfm  = ImageToTensor(),
+                        target_to_tensor_tfm = OneHot(),
       )
       Xs[:,:,:,i] = img
       ys[:,:,:,i] = mask[:,:,1:C_out] .|> Bool
@@ -217,11 +219,15 @@ struct PascalVocDataset
     df::DataFrame
     intensity_tfm
     geometric_tfm
+    image_to_tensor_tfm
+    target_to_tensor_tfm
 end
 
 # Interface
-image_to_tensor = ImageToTensor() |> Normalize(means, stds)
-mask_to_tensor  = OneHot()
+# σnoise = 0.02
+image_to_tensor_train = ImageToTensor() |> Normalize(means, stds) #|> GaussianNoise(σnoise)
+image_to_tensor_valid = ImageToTensor() |> Normalize(means, stds)
+mask_to_tensor = OneHot()
 
 Flux.numobs(d::PascalVocDataset) = nrow(d.df)
 
@@ -234,8 +240,8 @@ function Flux.getobs(d::PascalVocDataset, i::Int)
       img, mask = apply_data_augmentation(img, mask;
                         intensity_tfm = d.intensity_tfm,
                         geometric_tfm = d.geometric_tfm,
-                        image_tfm = image_to_tensor,
-                        mask_tfm  = mask_to_tensor,
+                        image_to_tensor_tfm  = d.image_to_tensor_tfm,
+                        target_to_tensor_tfm = d.target_to_tensor_tfm,
       )
 
       X = apply_channels_augmentation(img; activate=ch_aug_flag)
@@ -251,11 +257,15 @@ end
 train_dataset = PascalVocDataset(dftrain,
                               intensity_trainpipe,
                               geometric_trainpipe,
+                              image_to_tensor_train,
+                              mask_to_tensor,
 )
 
 valid_dataset = PascalVocDataset(dfvalid,
                               intensity_validpipe,
                               geometric_validpipe,
+                              image_to_tensor_valid,
+                              mask_to_tensor,
 )
 
 # data loaders
@@ -283,13 +293,8 @@ function evaluate_model(model, X, y)
       return (yhat, y)
 end
 
-# paper-faithful:    edrops=(0.0, 0.0, 0.0, 0.0, 0.5), ddrops=(0.0, 0.0, 0.0, 0.0)
-# mild overfitting:  edrops=(0.0, 0.0, 0.10, 0.20, 0.25), ddrops=(0.0, 0.0, 0.10, 0.20)
-# clear overfitting: edrops=(0.05, 0.10, 0.15, 0.20, 0.30), ddrops=(0.00, 0.05, 0.10, 0.15)
-edrops=(0.00, 0.10, 0.15, 0.20, 0.30)
-ddrops=(0.00, 0.05, 0.10, 0.15)
-
-modelcpu = unet5(C_in+C_aug, C_out; activation=leakyrelu, edrops=edrops, ddrops=ddrops)
+bb = Metalhead.backbone(ResNet(50; pretrain=true))
+modelcpu = DeepLabV3(C_in+C_aug, C_out; backbone=bb)
 # fpfn = "../2.baseline/models/dfl_2e-3_part2/bestmodel.jld2"
 # LibFluxML.loadModelState!(fpfn, modelcpu)
 # @info "model loaded from $fpfn"
@@ -314,13 +319,11 @@ loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.tra
 # loss functions
 function trainLossFunction(model,X,y)
       yhat, y = evaluate_model(model, X, y)
-      return LibFluxML.dfl(yhat, y;
+      return LibFluxML.ce_loss(yhat, y;
                   logits=true,
                   include_background=false,
                   exclude_voids=true,
-                  gamma=2.0,
-                  dice_weight=0.2,
-                  focal_weight=1.0,
+                  weights=train_weights,
                   reduction=:mean,
                   device=dev,
       )
@@ -340,9 +343,9 @@ end
 
 
 # optimizer & scheduler
-lr  = 1e-4
-# lr2 = 3e-3
-# lr3 = 5e-5
+lr = 1e-4
+lr2 = 3e-3
+lr3 = 5e-5
 β  = (0.9, 0.999)
 λ  = 1e-5
 # cn = 1.0    # clip norm
@@ -359,13 +362,13 @@ opt = OptimiserChain(
 optimizerState = Flux.setup(opt, model)
 # Flux.freeze!(optimizerState.encoder)
 
-# T1 = 8
-# T2 = 150 - T1
-# T3 = 500 - (T1+T2)
-# raising_part  = Triangle(l0=lr, l1=lr2, period=2*T1) # 1/2 period triangle
-# cosine_part   = CosAnneal(l0=lr2, l1=lr3, period=T2, restart=false)
-# constant_part = lr3
-# scheduler = Sequence(raising_part => T1, cosine_part => T2, constant_part => T3)
+T1 = 8
+T2 = 100
+T3 = 500 - (T1+T2)
+raising_part  = Triangle(l0=lr, l1=lr2, period=2*T1) # 1/2 period triangle
+cosine_part   = CosAnneal(l0=lr2, l1=lr3, period=T2, restart=false)
+constant_part = lr3
+scheduler = Sequence(raising_part => T1, cosine_part => T2, constant_part => T3)
 @info "optimizer OK"
 
 
@@ -430,13 +433,13 @@ LibCUDA.cleangpu()
 reset!(logger)
 
 validlosses = []
-for epoch in 1:epochs
-# for (eta, epoch) in zip(scheduler, 1:epochs)
+# for epoch in 1:epochs
+for (eta, epoch) in zip(scheduler, 1:epochs)
       LibCUDA.garbage_collection()
 
       @printf "*** Epoch %d/%d ***\n" epoch epochs
-      # Flux.adjust!(optimizerState, eta)
-      # @printf "Learning rate: %.3e \n\n" eta
+      Flux.adjust!(optimizerState, eta)
+      @printf "Learning rate: %.3e \n\n" eta
 
       # train epoch
       trainloss = trainEpoch!(trainLossFunction, model, train_loader, optimizerState;

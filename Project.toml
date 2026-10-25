@@ -3,6 +3,7 @@ CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 DataAugmentation = "88a5189c-e7ff-4f85-ac6b-e6158070f02e"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+DeepLab = "8af1ee66-1bb0-4cc4-8b8b-98ac44bdf12f"
 FLoops = "cc61a311-1640-44b5-9fba-1b764f453329"
 Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
 Images = "916415d5-f1e6-5110-898d-aaa5f9f070e0"
@@ -12,6 +13,7 @@ LibCUDA = "62f6ea4e-5fa0-47a8-a0b1-4c5959d5d2d3"
 LibDataAug = "8ce57647-ee5c-43be-a4d7-4c390306d9e9"
 LibFluxML = "06a27b3f-e48e-4378-94d6-12b963ed26a7"
 MLUtils = "f1d291b0-491e-4a28-83b9-f70985020b54"
+Metalhead = "dbeba491-748d-5e0e-a39e-b530a07fa0cc"
 OffsetArrays = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
 ParameterSchedulers = "d7d3b36b-41b8-4d0d-a2bf-768c6151755e"
 PascalVocTools = "3fdd8fd9-3429-41df-93e4-b1e51c23000a"
@@ -25,6 +27,7 @@ Wavelets = "29a6e085-ba6d-5f35-a997-948ac2efa89a"
 cuDNN = "02a925ec-e4fe-4b08-9a7e-0d78e3d38ccd"
 
 [sources]
+DeepLab = {rev = "main", url = "git@github.com:cirobr/DeepLab.jl.git"}
 LibCUDA = {rev = "main", url = "git@github.com:cirobr/LibCUDA.jl.git"}
 LibDataAug = {rev = "main", url = "git@github.com:cirobr/LibDataAug.jl.git"}
 LibFluxML = {rev = "main", url = "git@github.com:cirobr/LibFluxML.jl.git"}
