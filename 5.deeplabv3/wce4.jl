@@ -176,23 +176,23 @@ Nvalid = size(dfvalid, 1)
 
 
 # calculate normalization parameters and class frequencies
-# @info "calculating parameters ..."
-# Xs = Array{Float32,4}(undef, (framesize...,C_in,Ntrain))
-# ys = Array{Bool,4}(undef, (framesize...,C_out,Ntrain))
+@info "calculating parameters ..."
+Xs = Array{Float32,4}(undef, (framesize...,C_in,Ntrain))
+ys = Array{Bool,4}(undef, (framesize...,C_out,Ntrain))
 
-# FLoops.@floop for i in 1:Ntrain
-#       img = get_image(expanduser(dftrain.X[i]))
-#       mask = get_mask(expanduser(dftrain.y[i]))
+FLoops.@floop for i in 1:Ntrain
+      img = get_image(expanduser(dftrain.X[i]))
+      mask = get_mask(expanduser(dftrain.y[i]))
       
-#       img, mask = apply_data_augmentation(img, mask;
-#                         intensity_tfm = intensity_validpipe,
-#                         geometric_tfm = geometric_validpipe,
-#                         image_to_tensor_tfm  = ImageToTensor(),
-#                         target_to_tensor_tfm = OneHot(),
-#       )
-#       Xs[:,:,:,i] = img
-#       ys[:,:,:,i] = mask[:,:,1:C_out] .|> Bool
-# end
+      img, mask = apply_data_augmentation(img, mask;
+                        intensity_tfm = intensity_validpipe,
+                        geometric_tfm = geometric_validpipe,
+                        image_to_tensor_tfm  = ImageToTensor(),
+                        target_to_tensor_tfm = OneHot(),
+      )
+      Xs[:,:,:,i] = img
+      ys[:,:,:,i] = mask[:,:,1:C_out] .|> Bool
+end
 
 # normalization parameters
 # means, stds = get_normalization_params(Xs)
