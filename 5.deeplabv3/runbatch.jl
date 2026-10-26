@@ -20,7 +20,8 @@ scripts = [
     # "wce2.jl",   # weighted, slower rise, 256x256
     # "wce3.jl",   # weighted, slower rise, 500x500
     # "wce3_2.jl",   # weighted, same rise, 256x256
-    # "wce4.jl",   # same as above, imagenet stats
+    # "wce4.jl",   # same as above, imagenet stats   # best outcome, but unusable.
+    "wce5.jl",   # no pre-trained weights, output backbone stride changed to 16
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
