@@ -2,7 +2,7 @@
 
 julia_version = "1.13.3"
 manifest_format = "2.1"
-project_hash = "1eb527d419e9bab93e5f1ffc70ef8a0f77b9798d"
+project_hash = "7ea84b519427f940ccff8453f276ccbca13ef2aa"
 
 [[deps.ADTypes]]
 deps = ["PrecompileTools"]
@@ -274,10 +274,10 @@ version = "1.11.0"
 
 [[deps.CSV]]
 deps = ["CodecZlib", "DataStrings", "Dates", "Downloads", "Durations", "Mmap", "Parsers", "PooledArrays", "PrecompileTools", "Printf", "Tables", "Unicode"]
-git-tree-sha1 = "ed05d41d96b1a815d52e9de1ef472971bc509832"
+git-tree-sha1 = "73ef11e4a6bb95c71fdf2d559a3433ac3bf6e9b7"
 registries = "General"
 uuid = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
-version = "1.1.0"
+version = "1.2.0"
 
     [deps.CSV.extensions]
     CSVDataDecimalsExt = "DataDecimals"
@@ -636,7 +636,7 @@ version = "1.11.0"
 
 [[deps.DeepLab]]
 deps = ["Flux", "Metalhead"]
-git-tree-sha1 = "c0a1ede09a145a1e31050f06822eeec60019e9a9"
+git-tree-sha1 = "3ff0f28657848b3a837c489b6274986317ca7f6b"
 repo-rev = "main"
 repo-url = "git@github.com:cirobr/DeepLab.jl.git"
 uuid = "8af1ee66-1bb0-4cc4-8b8b-98ac44bdf12f"
@@ -828,11 +828,11 @@ uuid = "53c48c17-4a7d-5ca2-90c5-79b7896eea93"
 version = "0.8.6"
 
 [[deps.Flux]]
-deps = ["ADTypes", "Adapt", "BFloat16s", "ChainRulesCore", "Compat", "EnzymeCore", "Functors", "GPUArrays", "LinearAlgebra", "MLCore", "MLDataDevices", "MLUtils", "MacroTools", "NNlib", "OneHotArrays", "Optimisers", "Preferences", "ProgressLogging", "Random", "Reexport", "Setfield", "SparseArrays", "SpecialFunctions", "Statistics", "Zygote"]
-git-tree-sha1 = "c1bfb350b1155be570ae25c7349c86b0469b967e"
+deps = ["ADTypes", "Adapt", "BFloat16s", "ChainRulesCore", "Compat", "EnzymeCore", "Functors", "GPUArrays", "LinearAlgebra", "MLCore", "MLDataDevices", "MLUtils", "MacroTools", "NNlib", "OneHotArrays", "Optimisers", "PrecompileTools", "Preferences", "ProgressLogging", "Random", "Reexport", "Setfield", "SparseArrays", "SpecialFunctions", "Statistics", "Zygote"]
+git-tree-sha1 = "31303a34576e135792525f71e7e551cf466c24a4"
 registries = "General"
 uuid = "587475ba-b771-5e3f-ad9e-33799f191a9c"
-version = "0.16.14"
+version = "0.16.15"
 
     [deps.Flux.extensions]
     FluxAMDGPUExt = "AMDGPU"
@@ -1938,10 +1938,10 @@ version = "0.12.3"
 
 [[deps.Parsers]]
 deps = ["Dates", "PrecompileTools"]
-git-tree-sha1 = "fcc7b3df63440dc881e5d28d6f8169036e485641"
+git-tree-sha1 = "d874044ef56b0c9dd19d5fe966ebb62a9d27a9e9"
 registries = "General"
 uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
-version = "3.0.1"
+version = "3.0.2"
 
 [[deps.PascalVocTools]]
 deps = ["DataStructures"]
@@ -2205,10 +2205,10 @@ version = "0.5.2+0"
 
 [[deps.Roots]]
 deps = ["Accessors", "CommonSolve", "Printf"]
-git-tree-sha1 = "9f6402fd1b22472ba0a846e7f7d6cf356855d537"
+git-tree-sha1 = "c5e8a0a52c0d5d043214de04f11f4d9c2c6ccdb8"
 registries = "General"
 uuid = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
-version = "3.0.12"
+version = "3.0.13"
 
     [deps.Roots.extensions]
     RootsChainRulesCoreExt = "ChainRulesCore"
@@ -2572,9 +2572,8 @@ version = "0.5.0"
 
 [[deps.TinyMachines]]
 deps = ["Flux"]
-git-tree-sha1 = "389596f1d3d15b42e5968b4480b16f805379cea1"
-repo-rev = "v0.6.0"
-repo-url = "https://github.com/cirobr/TinyMachines.jl.git"
+git-tree-sha1 = "6a9179faef73bfe2c21130ba21f097a8c8ea5558"
+registries = "General"
 uuid = "5d0fdf5f-995e-4f1b-a9e8-363392c4fe32"
 version = "0.6.0"
 

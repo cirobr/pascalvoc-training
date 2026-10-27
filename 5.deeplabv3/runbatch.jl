@@ -7,11 +7,11 @@ Template for executing multiple scripts in series.
 
 ### arguments
 envpath       = "../"
-cudadevice    = 0
+cudadevice    = 1
 epochs        = 500
 minibatchsize = 8
 accum_steps   = 2
-debugflag     = true
+debugflag     = false
 
 
 ### projects
@@ -21,8 +21,8 @@ scripts = [
     # "wce3.jl",   # weighted, slower rise, 500x500
     # "wce3_2.jl",   # weighted, same rise, 256x256
     # "wce4.jl",   # same as above, imagenet stats   # best outcome, but unusable.
-    "wce5.jl",   # weighted, resnet50 bb, 256x256, slow rise.
-    "wce_custom.jl"   # weighted, resnet50 custom bb, 256x256, faster rise.
+    # "wce5.jl",   # weighted, resnet50 bb, 256x256, slow rise.
+    "wce_custom.jl"   # weighted, resnet50 custom bb, 256x256, faster rise, valid_loss = train_loss = ce_loss
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 

@@ -311,8 +311,7 @@ resnetmodel = Metalhead.resnet(
 )
 
 # Extract the feature extractor
-bb = resnetmodel.layers[1]          # or Metalhead.backbone if you wrap it
-modelcpu = DeepLabV3(C_in+C_aug, C_out; backbone=bb)
+modelcpu = DeepLabV3(backbone=bb16)
 # fpfn = "../2.baseline/models/dfl_2e-3_part2/bestmodel.jld2"
 # LibFluxML.loadModelState!(fpfn, modelcpu)
 # @info "model loaded from $fpfn"
@@ -348,25 +347,26 @@ function trainLossFunction(model,X,y)
       )
 end
 
-function validLossFunction(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return LibFluxML.iou_loss(yhat, y;
-                  logits=true,
-                  include_background=false,
-                  exclude_voids=true,
-                  reduction=:mean,
-                  device=dev,
-      )
-end
+validLossFunction(model,X,y) = trainLossFunction(model,X,y)
+# function validLossFunction(model,X,y)
+#       yhat, y = evaluate_model(model, X, y)
+#       return LibFluxML.iou_loss(yhat, y;
+#                   logits=true,
+#                   include_background=false,
+#                   exclude_voids=true,
+#                   reduction=:mean,
+#                   device=dev,
+#       )
+# end
 @info "loss functions OK"
 
 
 # optimizer & scheduler
-lr  = 1e-4
-lr2 = 2e-4 #3e-3
-lr3 = 5e-5
-β  = (0.9, 0.999)
-λ  = 1e-5
+lr  = 1e-4          # warm-up start
+lr2 = 1e-3          # peak (or 3e-3)
+lr3 = 1e-5          # final
+β = (0.9, 0.999)
+λ = 1e-4            # higher weight decay
 # cn = 1.0    # clip norm
 # cg = 1.0    # clip grad
 
@@ -381,10 +381,10 @@ opt = OptimiserChain(
 optimizerState = Flux.setup(opt, model)
 # Flux.freeze!(optimizerState.encoder)
 
-T1 = 8
-T2 = 100
-T3 = 500 - (T1+T2)
-raising_part  = Triangle(l0=lr, l1=lr2, period=2*T1) # 1/2 period triangle
+T1 = 10             # slightly longer warm-up
+T2 = 150
+T3 = 500 - (T1 + T2)
+raising_part  = Triangle(l0=lr, l1=lr2, period=2*T1)
 cosine_part   = CosAnneal(l0=lr2, l1=lr3, period=T2, restart=false)
 constant_part = lr3
 scheduler = Sequence(raising_part => T1, cosine_part => T2, constant_part => T3)
