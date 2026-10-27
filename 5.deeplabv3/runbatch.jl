@@ -6,12 +6,12 @@ Template for executing multiple scripts in series.
 """
 
 ### arguments
-# envpath       = "../"
-# cudadevice    = 1
-# epochs        = 500
-# minibatchsize = 8
-# accum_steps   = 1
-# debugflag     = false
+envpath       = "../"
+cudadevice    = 0
+epochs        = 500
+minibatchsize = 8
+accum_steps   = 2
+debugflag     = true
 
 
 ### projects
@@ -21,7 +21,8 @@ scripts = [
     # "wce3.jl",   # weighted, slower rise, 500x500
     # "wce3_2.jl",   # weighted, same rise, 256x256
     # "wce4.jl",   # same as above, imagenet stats   # best outcome, but unusable.
-    "wce5.jl",   # no pre-trained weights, output backbone stride changed to 16
+    "wce5.jl",   # weighted, resnet50 bb, 256x256, slow rise.
+    "wce_custom.jl"   # weighted, resnet50 custom bb, 256x256, faster rise.
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
@@ -32,5 +33,5 @@ tblogs = @. "tblogs/" * scriptfolders * "/"
 @info "Batch started"
 @. rm(models, force=true, recursive=true)
 @. rm(tblogs, force=true, recursive=true)
-# @. include(scripts)
+@. include(scripts)
 @info "Batch completed!"

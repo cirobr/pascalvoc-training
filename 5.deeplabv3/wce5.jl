@@ -9,12 +9,12 @@ Template for training vision models.
 cd(@__DIR__)
 
 ### arguments
-envpath       = "../"
-cudadevice    = 1
-epochs        = 500
-minibatchsize = 8
-accum_steps   = 1
-debugflag     = false
+# envpath       = "../"
+# cudadevice    = 1
+# epochs        = 500
+# minibatchsize = 8
+# accum_steps   = 2
+# debugflag     = false
 
 
 ### libs
@@ -121,7 +121,7 @@ intensity_trainpipe =
 
 geometric_trainpipe =
       Maybe(FlipX{2}(), 0.5) |>
-      Maybe(Rotate(10), 0.5) |>
+      Maybe(Rotate(15), 0.5) |>
       OneOf([CenterResizeCrop(framesize), random_crop, class_crop], [0.1, 0.1, 0.8])
       # CenterCrop(framesize)
 
@@ -195,11 +195,11 @@ FLoops.@floop for i in 1:Ntrain
 end
 
 # normalization parameters
-means, stds = get_normalization_params(Xs)
-means = trunc.(means, digits=3) .|> Float32
-stds  = trunc.(stds, digits=3)  .|> Float32
-# means = Float32[0.485, 0.456, 0.406]   # imagenet statistics
-# stds  = Float32[0.229, 0.224, 0.225]
+# means, stds = get_normalization_params(Xs)
+# means = means .|> Float32
+# stds  = stds  .|> Float32
+means = Float32[0.485, 0.456, 0.406]   # imagenet statistics
+stds  = Float32[0.229, 0.224, 0.225]
 @show means
 @show stds
 @info "normalization parameters OK"
@@ -297,21 +297,7 @@ function evaluate_model(model, X, y)
       return (yhat, y)
 end
 
-# Custom stride: keep stage 4 at stride 1 → OS = 16
-function stride_os16(stage_idx::Integer, block_idx::Integer)
-    stage_idx == 4 ? 1 : Metalhead.resnet_stride(stage_idx, block_idx)
-end
-
-# ResNet-50 backbone with OS=16
-resnetmodel = Metalhead.resnet(
-    Metalhead.bottleneck,
-    [3, 4, 6, 3];
-    stride_fn = stride_os16,   # ← passed through kwargs to the builder
-    nclasses = 1000
-)
-
-# Extract the feature extractor
-bb = resnetmodel.layers[1]          # or Metalhead.backbone if you wrap it
+bb = Metalhead.backbone(ResNet(50; pretrain=true))
 modelcpu = DeepLabV3(C_in+C_aug, C_out; backbone=bb)
 # fpfn = "../2.baseline/models/dfl_2e-3_part2/bestmodel.jld2"
 # LibFluxML.loadModelState!(fpfn, modelcpu)
@@ -361,11 +347,11 @@ end
 
 
 # optimizer & scheduler
-lr  = 1e-4
-lr2 = 2e-4 #3e-3
-lr3 = 5e-5
+lr  = 5e-5
+lr2 = 1e-4          # or even 5e-5
+lr3 = 1e-5
 β  = (0.9, 0.999)
-λ  = 1e-5
+λ  = 5e-5           # or 1e-4
 # cn = 1.0    # clip norm
 # cg = 1.0    # clip grad
 
