@@ -362,17 +362,6 @@ scheduler = Sequence(raising_part => T1, cosine_part => T2, constant_part => T3)
 @info "optimizer OK"
 
 
-# warmup training
-# @info "warmup training..."
-# loader = first(train_loader) .|> dev
-# Flux.train!(model, loader, optimizerState) do m, x, y
-#       # trainLossFunction(m, x, y)
-#       Flux.mse(m(x),y)
-# end
-# loader = nothing
-# @info "warmup training OK"
-
-
 # one-number metrics
 function acc_score(model,X,y)
       yhat, y = evaluate_model(model, X, y)
@@ -420,6 +409,16 @@ end
 # tensorboard logger
 logger = TBLogger(expanduser(tblogsfolder))
 @info "tensorboard logger OK"
+
+
+# warmup training
+@info "warmup training..."
+loader = first(train_loader, 1) .|> dev
+Flux.train!(model, loader, optimizerState) do m, x, y
+      trainLossFunction(m, x, y)
+end
+loader = nothing
+@info "warmup training OK"
 
 
 ###########################################
