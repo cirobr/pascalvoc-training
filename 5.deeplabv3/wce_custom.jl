@@ -297,21 +297,7 @@ function evaluate_model(model, X, y)
       return (yhat, y)
 end
 
-# Custom stride: keep stage 4 at stride 1 → OS = 16
-function stride_os16(stage_idx::Integer, block_idx::Integer)
-    stage_idx == 4 ? 1 : Metalhead.resnet_stride(stage_idx, block_idx)
-end
-
-# ResNet-50 backbone with OS=16
-resnetmodel = Metalhead.resnet(
-    Metalhead.bottleneck,
-    [3, 4, 6, 3];
-    stride_fn = stride_os16,   # ← passed through kwargs to the builder
-    nclasses = 1000
-)
-
-# Extract the feature extractor
-modelcpu = DeepLabV3(backbone=bb16)
+modelcpu = DeepLabV3(C_in+C_aug, C_out; backbone=bb16)
 # fpfn = "../2.baseline/models/dfl_2e-3_part2/bestmodel.jld2"
 # LibFluxML.loadModelState!(fpfn, modelcpu)
 # @info "model loaded from $fpfn"
