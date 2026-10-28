@@ -1,6 +1,6 @@
 """
 Author: cirobr@GitHub
-Date: 25-Oct-2026
+Date: 23-Oct-2026
 
 Template for training vision models.
 """
@@ -12,7 +12,7 @@ cd(@__DIR__)
 # envpath       = "../"
 # cudadevice    = 0
 # epochs        = 500
-# minibatchsize = 6
+# minibatchsize = 8
 # accum_steps   = 2
 # debugflag     = true
 
@@ -33,9 +33,7 @@ else
       @warn "gpu disabled: using cpu."
 end
 
-using DeepLab
-using Metalhead
-# using TinyMachines
+using TinyMachines
 using Images
 using DataAugmentation
 using OffsetArrays
@@ -51,7 +49,6 @@ using FLoops
 using Printf
 using ProgressBars
 import Statistics: mean, minimum, maximum, norm, std, median
-using Wavelets
 
 # private libs
 using LibFluxML
@@ -77,7 +74,7 @@ colorflag =  C_in == 3 ? true : false
 
 
 # custom functions
-function get_image(path::String)
+function get_image(path::String; colorflag::Bool=true)
       img = Images.load(expanduser(path))
       return colorflag ? RGB{N0f8}.(img) : Gray{N0f8}.(img)
 end
@@ -89,18 +86,6 @@ function get_mask(path::String)
       return Images.load(expanduser(path)) |> mask->to_ids(mask) .|> Int16
 end
 
-C_aug = 0
-# C_aug = 4
-ch_aug_flag =  C_aug > 0 ? true : false
-function apply_channels_augmentation(x::AbstractArray; activate::Bool=true)
-      if !activate   return x   end          # pass-through
-      # augmentation
-      Xg = add_grads_channel(x)              # 1-ch gradient
-      LH, HL, HH = add_wavelet_channels(x)   # 3-ch wavelet transformation
-
-      Xout = cat(x, Xg, LH, HL, HH; dims=3)
-      return Xout
-end
 
 # images augmentation
 const short_sides = 320:500
@@ -121,11 +106,13 @@ intensity_trainpipe =
 
 geometric_trainpipe =
       Maybe(FlipX{2}(), 0.5) |>
+      Maybe(Rotate(15), 0.5) |>
       OneOf([CenterResizeCrop(framesize), random_crop, class_crop], [0.1, 0.1, 0.8])
+      # CenterCrop(framesize)
 
 intensity_validpipe = Identity()
 
-geometric_validpipe = CenterResizeCrop(framesize)
+geometric_validpipe = CenterCrop(framesize)
 @info "environment OK"
 
 
@@ -179,7 +166,7 @@ Xs = Array{Float32,4}(undef, (framesize...,C_in,Ntrain))
 ys = Array{Bool,4}(undef, (framesize...,C_out,Ntrain))
 
 FLoops.@floop for i in 1:Ntrain
-      img = get_image(expanduser(dftrain.X[i]))
+      img  = get_image(expanduser(dftrain.X[i]); colorflag=colorflag)
       mask = get_mask(expanduser(dftrain.y[i]))
       
       img, mask = apply_data_augmentation(img, mask;
@@ -192,10 +179,15 @@ FLoops.@floop for i in 1:Ntrain
       ys[:,:,:,i] = mask[:,:,1:C_out] .|> Bool
 end
 
-# normalization parameters
+# normalization statistics
 means, stds = get_normalization_params(Xs)
-means = means .|> Float32
-stds  = stds  .|> Float32
+means = means |> x->trunc.(x,digits=3) .|> Float32
+stds  = stds  |> x->trunc.(x,digits=3) .|> Float32
+
+# imagenet statistics
+# means = Float32[0.485, 0.456, 0.406]
+# stds  = Float32[0.229, 0.224, 0.225]
+
 @show means
 @show stds
 @info "normalization parameters OK"
@@ -211,7 +203,6 @@ train_weights = median_weights .|> Float32 |> dev
 Xs = nothing
 ys = nothing
 @info "loss weights OK"
-# @assert false
 
 
 # data loading
@@ -223,7 +214,7 @@ struct PascalVocDataset
     target_to_tensor_tfm
 end
 
-# Interface
+# dataset interface
 # σnoise = 0.02
 image_to_tensor_train = ImageToTensor() |> Normalize(means, stds) #|> GaussianNoise(σnoise)
 image_to_tensor_valid = ImageToTensor() |> Normalize(means, stds)
@@ -234,7 +225,7 @@ Flux.numobs(d::PascalVocDataset) = nrow(d.df)
 function Flux.getobs(d::PascalVocDataset, i::Int)
       row = d.df[i, :]
       
-      img  = get_image(expanduser(row.X))
+      img  = get_image(expanduser(row.X); colorflag=colorflag)
       mask = get_mask(expanduser(row.y))
     
       img, mask = apply_data_augmentation(img, mask;
@@ -244,7 +235,7 @@ function Flux.getobs(d::PascalVocDataset, i::Int)
                         target_to_tensor_tfm = d.target_to_tensor_tfm,
       )
 
-      X = apply_channels_augmentation(img; activate=ch_aug_flag)
+      X = img
       y = mask[:,:,1:C_out] .|> Bool
       return (X, y)
 end
@@ -293,8 +284,7 @@ function evaluate_model(model, X, y)
       return (yhat, y)
 end
 
-bb = Metalhead.backbone(ResNet(50; pretrain=true))
-modelcpu = DeepLabV3(C_in+C_aug, C_out; backbone=bb)
+modelcpu = UNet(C_in, C_out)
 # fpfn = "../2.baseline/models/dfl_2e-3_part2/bestmodel.jld2"
 # LibFluxML.loadModelState!(fpfn, modelcpu)
 # @info "model loaded from $fpfn"
@@ -308,7 +298,7 @@ function lossfn(model, X, y)   # loss function for testing purposes only
       return Flux.mse(yhat, y)
 end
 
-(X,y) = first(valid_loader)
+(X,y) = first(train_loader)
 X = X |> dev
 y = y |> dev
 loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.train! >= 0.13.9)
@@ -343,11 +333,11 @@ end
 
 
 # optimizer & scheduler
-lr = 1e-4
-lr2 = 3e-3
-lr3 = 5e-5
+lr  = 5e-5
+lr2 = 1e-4          # or even 5e-5
+lr3 = 1e-5
 β  = (0.9, 0.999)
-λ  = 1e-5
+λ  = 5e-5           # or 1e-4
 # cn = 1.0    # clip norm
 # cg = 1.0    # clip grad
 
@@ -372,6 +362,17 @@ scheduler = Sequence(raising_part => T1, cosine_part => T2, constant_part => T3)
 @info "optimizer OK"
 
 
+# warmup training
+# @info "warmup training..."
+# loader = first(train_loader) .|> dev
+# Flux.train!(model, loader, optimizerState) do m, x, y
+#       # trainLossFunction(m, x, y)
+#       Flux.mse(m(x),y)
+# end
+# loader = nothing
+# @info "warmup training OK"
+
+
 # one-number metrics
 function acc_score(model,X,y)
       yhat, y = evaluate_model(model, X, y)
@@ -393,11 +394,19 @@ function mean_iou(model,X,y)
       return per_class_iou(yhat, y; logits=true, exclude_voids=true, reduction=:mean, device=dev)
 end
 
+function validCE(model, X, y)
+    yhat, y = evaluate_model(model, X, y)
+    return LibFluxML.ce_loss(yhat, y;
+            logits=true, include_background=false, exclude_voids=true,
+            weights=train_weights, reduction=:mean, device=dev)
+end
+
 metrics = [
       acc_score,
       f1_score,
       iou_score,
       mean_iou,
+      validCE,
 ]
 
 # per-class metrics
@@ -436,20 +445,21 @@ validlosses = []
 # for epoch in 1:epochs
 for (eta, epoch) in zip(scheduler, 1:epochs)
       LibCUDA.garbage_collection()
+      # LibCUDA.cleangpu()
 
       @printf "*** Epoch %d/%d ***\n" epoch epochs
       Flux.adjust!(optimizerState, eta)
       @printf "Learning rate: %.3e \n\n" eta
 
       # train epoch
-      trainloss = trainEpoch!(trainLossFunction, model, train_loader, optimizerState;
-                        device=dev
-      )
+      trainloss = 
+            trainEpoch!(trainLossFunction, model, train_loader, optimizerState; device=dev)
       @assert !isnan(trainloss) || error("training loss is NaN")
       @printf "Training loss: %.4f \n\n" trainloss
 
       # evaluate epoch
-      validloss, validmetrics = evaluateEpoch(validLossFunction, model, valid_loader, metrics)
+      validloss, validmetrics = 
+            evaluateEpoch(validLossFunction, model, valid_loader, metrics; device=dev)
       @assert !isnan(validloss) || error("validation loss is NaN")
       @printf "Validation loss: %.4f \n" validloss
 

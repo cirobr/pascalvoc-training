@@ -9,7 +9,7 @@ Template for executing multiple scripts in series.
 envpath       = "../"
 cudadevice    = 0
 epochs        = 500
-minibatchsize = 6
+minibatchsize = 8
 accum_steps   = 2
 debugflag     = true
 
