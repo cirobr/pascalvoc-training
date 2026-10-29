@@ -469,6 +469,9 @@ stop_monitor.number_since_best = 20   # to bypass noise peaks
 stop_monitor.patience = 5
 
 # training loop
+using ProgressBars; pb=ProgressBars
+include("learn.jl")
+
 LibCUDA.cleangpu()
 reset!(logger)
 
