@@ -418,7 +418,7 @@ Flux.train!(model, loader, optimizerState) do m, x, y
       trainLossFunction(m, x, y)
 end
 loader = nothing
-@info "warmup training OK"
+@info "warmup OK"
 
 
 ###########################################
