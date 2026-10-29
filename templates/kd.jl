@@ -1,20 +1,21 @@
 """
 Author: cirobr@GitHub
-Date: 23-Oct-2026
+Date: 29-Oct-2026
 
-Template for training vision models.
+Template for kd vision models.
 """
 
 @info "*** Project $( basename(@__FILE__) ) started ***"
 cd(@__DIR__)
 
 ### arguments
-envpath       = "../"
-cudadevice    = 0
-epochs        = 500
-minibatchsize = 8
-accum_steps   = 2
-debugflag     = true
+# envpath     = "../"
+# cudadevice  = 0
+# epochs      = 500
+# train_batch = 8
+# accum_steps = 2
+# valid_batch = train_batch * accum_steps
+# debugflag   = true
 
 
 ### libs
@@ -54,6 +55,7 @@ import Statistics: mean, minimum, maximum, norm, std, median
 # private libs
 using LibFluxML
 import LibFluxML: acc_score, f1_score, iou_score, per_class_iou   # metrics
+using PreprocessingImages; p=PreprocessingImages
 import PreprocessingImages: get_normalization_params
 using LibDataAug
 import LibDataAug: apply_data_augmentation
@@ -73,14 +75,20 @@ C_in = 3
 # C_in = 1
 colorflag =  C_in == 3 ? true : false
 
+# imagenet constants
+const imagenet_means = Float32[0.485, 0.456, 0.406]
+const imagenet_stds  = Float32[0.229, 0.224, 0.225]
+
 
 # teacher model
+@info "load teacher model..."
 # size(fs[1]) = (64, 64, 64, 1)
 # size(fs[2]) = (64, 64, 256, 1)
 # size(fs[3]) = (32, 32, 512, 1)
 # unet encoder -> size(fs[4]) = (16, 16, 1024, 1)
 # size(fs[5]) = (8, 8, 2048, 1)
 teachermodel = Metalhead.backbone(ResNet(50; pretrain=true)) |> dev
+@info "teacher model OK"
 
 # custom functions
 function get_image(path::String; colorflag::Bool=true)
@@ -96,6 +104,18 @@ function get_mask(x::AbstractArray)
       return Flux.activations(teachermodel, dev(x))[4] |> cpu
 end
 
+function normalize_tensor(x::AbstractArray; means::AbstractVector, stds::AbstractVector)
+      n = size(means)[1]
+      @assert n ∈ [1,3]
+      @assert n == size(stds)[1]
+
+      if n == 3
+            means = reshape(means, (1,1,3))
+            stds  = reshape(stds,  (1,1,3))
+      end
+      
+      return (x .- means) ./ (stds)
+end
 
 # images augmentation
 const short_sides = 320:500
@@ -159,8 +179,9 @@ dfvalid = df[val_idx, :]
 if debugflag
       dftrain = first(dftrain, 3)
       dfvalid = first(dfvalid, 2)
-      minibatchsize = 1
+      train_batch = 1
       accum_steps = 1
+      valid_batch = 1
       epochs  = 2
 end
 # end debug mode
@@ -182,21 +203,17 @@ FLoops.@floop for i in 1:Ntrain
       img = apply_data_augmentation(img;
                         intensity_tfm = intensity_validpipe,
                         geometric_tfm = geometric_validpipe,
-                        image_to_tensor_tfm  = ImageToTensor(),
-                        # target_to_tensor_tfm = OneHot(),
       )
-      Xs[:,:,:,i] = img
-      # ys[:,:,:,i] = mask[:,:,1:C_out] .|> Bool
+      Xs[:,:,:,i] = p.image2Float32(img)
+      # ys[:,:,:,i] = convert_mask_to_tensor(mask)
 end
 
 # normalization statistics
 means, stds = get_normalization_params(Xs)
 means = means |> x->trunc.(x,digits=3) .|> Float32
 stds  = stds  |> x->trunc.(x,digits=3) .|> Float32
-
-# imagenet statistics
-# means = Float32[0.485, 0.456, 0.406]
-# stds  = Float32[0.229, 0.224, 0.225]
+# means = imagenet_means
+# stds  = imagenet_stds
 
 @show means
 @show stds
@@ -212,7 +229,7 @@ stds  = stds  |> x->trunc.(x,digits=3) .|> Float32
 
 Xs = nothing
 ys = nothing
-@info "loss weights OK"
+# @info "loss weights OK"
 
 
 # data loading
@@ -220,15 +237,11 @@ struct PascalVocDataset
     df::DataFrame
     intensity_tfm
     geometric_tfm
-    image_to_tensor_tfm
-#     target_to_tensor_tfm
 end
 
 # dataset interface
 # σnoise = 0.02
-image_to_tensor_train = ImageToTensor() |> Normalize(means, stds) #|> GaussianNoise(σnoise)
-image_to_tensor_valid = ImageToTensor() |> Normalize(means, stds)
-# mask_to_tensor = OneHot()
+# image_to_tensor_train = ImageToTensor() |> Normalize(means, stds) #|> GaussianNoise(σnoise)
 
 Flux.numobs(d::PascalVocDataset) = nrow(d.df)
 
@@ -241,12 +254,16 @@ function Flux.getobs(d::PascalVocDataset, i::Int)
       img = apply_data_augmentation(img;
                         intensity_tfm = d.intensity_tfm,
                         geometric_tfm = d.geometric_tfm,
-                        image_to_tensor_tfm = d.image_to_tensor_tfm,
       )
 
-      X = img
-      y = get_mask( insertdims(img, dims=4) ) |> x->dropdims(x, dims=4)
-      # y = mask[:,:,1:C_out] .|> Bool
+      img_float = p.image2Float32(img)
+      X = normalize_tensor(img_float; means=means, stds=stds)
+      # X = convert_image_to_tensor(img)
+
+      # y = convert_mask_to_tensor(mask)
+      y_norm = normalize_tensor(img_float; means=imagenet_means, stds=imagenet_stds)
+      y = get_mask( insertdims(y_norm, dims=4) ) |> x->dropdims(x, dims=4)
+      
       return (X, y)
 end
 
@@ -258,20 +275,16 @@ end
 train_dataset = PascalVocDataset(dftrain,
                               intensity_trainpipe,
                               geometric_trainpipe,
-                              image_to_tensor_train,
-                              # mask_to_tensor,
 )
 
 valid_dataset = PascalVocDataset(dfvalid,
                               intensity_validpipe,
                               geometric_validpipe,
-                              image_to_tensor_valid,
-                              # mask_to_tensor,
 )
 
 # data loaders
 train_loader = Flux.DataLoader(train_dataset,
-                        batchsize=minibatchsize,
+                        batchsize=train_batch,
                         buffer=true,
                         collate=true,
                         parallel=true,
@@ -279,7 +292,7 @@ train_loader = Flux.DataLoader(train_dataset,
 )
 
 valid_loader = Flux.DataLoader(valid_dataset,
-                        batchsize=minibatchsize * accum_steps,
+                        batchsize=valid_batch,
                         buffer=true,
                         collate=true,
                         parallel=true,
@@ -294,7 +307,7 @@ function evaluate_model(model, X, y)
       return (yhat, y)
 end
 
-modelcpu = TinyMachines.UNet(C_in, C_out).encoder
+modelcpu = TinyMachines.UNet(C_in, C_out; activation=leakyrelu).encoder
 # fpfn = "../2.baseline/models/dfl_2e-3_part2/bestmodel.jld2"
 # LibFluxML.loadModelState!(fpfn, modelcpu)
 # @info "model loaded from $fpfn"

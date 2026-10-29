@@ -27,6 +27,7 @@ Wavelets = "29a6e085-ba6d-5f35-a997-948ac2efa89a"
 cuDNN = "02a925ec-e4fe-4b08-9a7e-0d78e3d38ccd"
 
 [sources]
+CUDA = {rev = "v6.4.2", url = "https://github.com/JuliaGPU/CUDA.jl.git"}
 DeepLab = {rev = "main", url = "git@github.com:cirobr/DeepLab.jl.git"}
 LibCUDA = {rev = "main", url = "git@github.com:cirobr/LibCUDA.jl.git"}
 LibDataAug = {rev = "main", url = "git@github.com:cirobr/LibDataAug.jl.git"}

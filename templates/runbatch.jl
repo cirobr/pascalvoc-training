@@ -1,6 +1,6 @@
 """
 Author: cirobr@GitHub
-Date: 18-Sep-2026
+Date: 29-Oct-2026
 
 Template for executing multiple scripts in series.
 """
@@ -9,14 +9,16 @@ Template for executing multiple scripts in series.
 envpath       = "../"
 cudadevice    = 0
 epochs        = 500
-minibatchsize = 8
+train_batch   = 8
 accum_steps   = 2
+valid_batch   = train_batch * accum_steps
 debugflag     = true
 
 
 ### projects
 scripts = [
     "train.jl",
+    "kd.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 

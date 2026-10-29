@@ -1,6 +1,6 @@
 """
 Author: cirobr@GitHub
-Date: 23-Oct-2026
+Date: 29-Oct-2026
 
 Template for training vision models.
 """
@@ -9,12 +9,13 @@ Template for training vision models.
 cd(@__DIR__)
 
 ### arguments
-# envpath       = "../"
-# cudadevice    = 0
-# epochs        = 500
-# minibatchsize = 8
-# accum_steps   = 2
-# debugflag     = true
+# envpath     = "../"
+# cudadevice  = 0
+# epochs      = 500
+# train_batch = 8
+# accum_steps = 2
+# valid_batch = train_batch * accum_steps
+# debugflag   = true
 
 
 ### libs
@@ -53,6 +54,7 @@ import Statistics: mean, minimum, maximum, norm, std, median
 # private libs
 using LibFluxML
 import LibFluxML: acc_score, f1_score, iou_score, per_class_iou   # metrics
+using PreprocessingImages; p=PreprocessingImages
 import PreprocessingImages: get_normalization_params
 using LibDataAug
 import LibDataAug: apply_data_augmentation
@@ -72,6 +74,10 @@ C_in = 3
 # C_in = 1
 colorflag =  C_in == 3 ? true : false
 
+# imagenet constants
+const imagenet_means = Float32[0.485, 0.456, 0.406]
+const imagenet_stds  = Float32[0.229, 0.224, 0.225]
+
 
 # custom functions
 function get_image(path::String; colorflag::Bool=true)
@@ -84,6 +90,30 @@ to_ids(mask) = mask.index
 
 function get_mask(path::String)
       return Images.load(expanduser(path)) |> mask->to_ids(mask) .|> Int16
+end
+
+function normalize_tensor(x::AbstractArray; means::AbstractVector, stds::AbstractVector)
+      n = size(means)[1]
+      @assert n ∈ [1,3]
+      @assert n == size(stds)[1]
+
+      if n == 3
+            means = reshape(means, (1,1,3))
+            stds  = reshape(stds,  (1,1,3))
+      end
+      
+      return (x .- means) ./ (stds)
+end
+
+function convert_image_to_tensor(img)
+      error("function not implemented")
+end
+
+function convert_mask_to_tensor(mask)
+      return Flux.onehotbatch(mask, (classnrs..., 255), 255) |> # CHW
+            x->permutedims(x, (2,3,1)) |>                       # HWC
+            x->x[:,:,1:end-1] .|>                               # remove 255/void class
+            Bool
 end
 
 
@@ -149,8 +179,9 @@ dfvalid = df[val_idx, :]
 if debugflag
       dftrain = first(dftrain, 3)
       dfvalid = first(dfvalid, 2)
-      minibatchsize = 1
+      train_batch = 1
       accum_steps = 1
+      valid_batch = 1
       epochs  = 2
 end
 # end debug mode
@@ -158,7 +189,6 @@ end
 Ntrain = size(dftrain, 1)
 Nvalid = size(dfvalid, 1)
 @info "dataset OK"
-
 
 # calculate normalization parameters and class frequencies
 @info "calculating parameters ..."
@@ -172,21 +202,18 @@ FLoops.@floop for i in 1:Ntrain
       img, mask = apply_data_augmentation(img, mask;
                         intensity_tfm = intensity_validpipe,
                         geometric_tfm = geometric_validpipe,
-                        image_to_tensor_tfm  = ImageToTensor(),
-                        target_to_tensor_tfm = OneHot(),
       )
-      Xs[:,:,:,i] = img
-      ys[:,:,:,i] = mask[:,:,1:C_out] .|> Bool
+
+      Xs[:,:,:,i] = p.image2Float32(img)
+      ys[:,:,:,i] = convert_mask_to_tensor(mask)
 end
 
 # normalization statistics
 means, stds = get_normalization_params(Xs)
 means = means |> x->trunc.(x,digits=3) .|> Float32
 stds  = stds  |> x->trunc.(x,digits=3) .|> Float32
-
-# imagenet statistics
-# means = Float32[0.485, 0.456, 0.406]
-# stds  = Float32[0.229, 0.224, 0.225]
+# means = imagenet_means
+# stds  = imagenet_stds
 
 @show means
 @show stds
@@ -210,15 +237,11 @@ struct PascalVocDataset
     df::DataFrame
     intensity_tfm
     geometric_tfm
-    image_to_tensor_tfm
-    target_to_tensor_tfm
 end
 
 # dataset interface
 # σnoise = 0.02
-image_to_tensor_train = ImageToTensor() |> Normalize(means, stds) #|> GaussianNoise(σnoise)
-image_to_tensor_valid = ImageToTensor() |> Normalize(means, stds)
-mask_to_tensor = OneHot()
+# image_to_tensor_train = ImageToTensor() |> Normalize(means, stds) #|> GaussianNoise(σnoise)
 
 Flux.numobs(d::PascalVocDataset) = nrow(d.df)
 
@@ -231,12 +254,14 @@ function Flux.getobs(d::PascalVocDataset, i::Int)
       img, mask = apply_data_augmentation(img, mask;
                         intensity_tfm = d.intensity_tfm,
                         geometric_tfm = d.geometric_tfm,
-                        image_to_tensor_tfm  = d.image_to_tensor_tfm,
-                        target_to_tensor_tfm = d.target_to_tensor_tfm,
       )
 
-      X = img
-      y = mask[:,:,1:C_out] .|> Bool
+      img_float = p.image2Float32(img)
+      X = normalize_tensor(img_float; means=means, stds=stds)
+      # X = convert_image_to_tensor(img)
+
+      y = convert_mask_to_tensor(mask)
+      
       return (X, y)
 end
 
@@ -248,20 +273,16 @@ end
 train_dataset = PascalVocDataset(dftrain,
                               intensity_trainpipe,
                               geometric_trainpipe,
-                              image_to_tensor_train,
-                              mask_to_tensor,
 )
 
 valid_dataset = PascalVocDataset(dfvalid,
                               intensity_validpipe,
                               geometric_validpipe,
-                              image_to_tensor_valid,
-                              mask_to_tensor,
 )
 
 # data loaders
 train_loader = Flux.DataLoader(train_dataset,
-                        batchsize=minibatchsize,
+                        batchsize=train_batch,
                         buffer=true,
                         collate=true,
                         parallel=true,
@@ -269,7 +290,7 @@ train_loader = Flux.DataLoader(train_dataset,
 )
 
 valid_loader = Flux.DataLoader(valid_dataset,
-                        batchsize=minibatchsize * accum_steps,
+                        batchsize=valid_batch,
                         buffer=true,
                         collate=true,
                         parallel=true,
@@ -284,7 +305,7 @@ function evaluate_model(model, X, y)
       return (yhat, y)
 end
 
-modelcpu = UNet(C_in, C_out)
+modelcpu = TinyMachines.UNet(C_in, C_out; activation=leakyrelu)
 # fpfn = "../2.baseline/models/dfl_2e-3_part2/bestmodel.jld2"
 # LibFluxML.loadModelState!(fpfn, modelcpu)
 # @info "model loaded from $fpfn"
@@ -333,11 +354,11 @@ end
 
 
 # optimizer & scheduler
-lr  = 5e-5
-lr2 = 1e-4          # or even 5e-5
-lr3 = 1e-5
-β  = (0.9, 0.999)
-λ  = 5e-5           # or 1e-4
+lr  = 1e-4
+lr2 = 2e-4
+lr3 = 5e-5
+β   = (0.9, 0.999)
+λ   = 5e-5   # or 1e-4
 # cn = 1.0    # clip norm
 # cg = 1.0    # clip grad
 
