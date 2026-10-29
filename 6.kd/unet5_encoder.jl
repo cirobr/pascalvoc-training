@@ -321,7 +321,7 @@ loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.tra
 NOTE: T² factor applies to log-based losses such as kldivergence and cross-entropy, but not to mse.
 The mse loss is already scaled by the temperature factor in the softmax function.
 """
-T = 1   ### Distillation temperature ###
+T = 1   ### Distillation temperature: T=1 for encoder, T=3 or 4 for logits.
 
 function trainLossFunction(model,X,y)
       yhat, y = evaluate_model(model, X, y)
@@ -336,9 +336,9 @@ end
 
 
 # optimizer & scheduler
-lr  = 5e-5
-lr2 = 1e-4          # or even 5e-5
-lr3 = 1e-5
+lr  = 1e-4
+lr2 = 2e-4
+lr3 = 5e-5
 β  = (0.9, 0.999)
 λ  = 5e-5           # or 1e-4
 # cn = 1.0    # clip norm

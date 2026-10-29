@@ -16,7 +16,7 @@ debugflag     = true
 
 ### projects
 scripts = [
-    "kd.jl",
+    "unet5_encoder.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
