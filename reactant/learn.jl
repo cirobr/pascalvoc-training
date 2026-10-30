@@ -4,7 +4,6 @@ function trainEpoch!(lossfn, model, data, optstate; verbose=false, device=gpu)
     grads = nothing
 
     for (i, (X,y)) in pb.ProgressBar( enumerate(data) )
-        LibCUDA.garbage_collection()
         X = X |> device
         y = y |> device
         loss, grads = Flux.withgradient(model) do m

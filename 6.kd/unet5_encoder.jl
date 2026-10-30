@@ -88,6 +88,7 @@ const imagenet_stds  = Float32[0.229, 0.224, 0.225]
 # unet encoder -> size(fs[4]) = (16, 16, 1024, 1)
 # size(fs[5]) = (8, 8, 2048, 1)
 teachermodel = Metalhead.backbone(ResNet(50; pretrain=true)) |> dev
+testmode!(teachermodel)
 @info "teacher model OK"
 
 # custom functions
@@ -469,9 +470,6 @@ stop_monitor.number_since_best = 20   # to bypass noise peaks
 stop_monitor.patience = 5
 
 # training loop
-using ProgressBars; pb=ProgressBars
-include("learn.jl")
-
 LibCUDA.cleangpu()
 reset!(logger)
 

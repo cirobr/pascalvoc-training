@@ -1,6 +1,6 @@
 """
 Author: cirobr@GitHub
-Date: 29-Oct-2026
+Date: 30-Oct-2026
 
 Template for kd vision models.
 """
@@ -81,13 +81,14 @@ const imagenet_stds  = Float32[0.229, 0.224, 0.225]
 
 
 # teacher model
-@info "load teacher model..."
+@info "loading teacher model..."
 # size(fs[1]) = (64, 64, 64, 1)
 # size(fs[2]) = (64, 64, 256, 1)
 # size(fs[3]) = (32, 32, 512, 1)
 # unet encoder -> size(fs[4]) = (16, 16, 1024, 1)
 # size(fs[5]) = (8, 8, 2048, 1)
 teachermodel = Metalhead.backbone(ResNet(50; pretrain=true)) |> dev
+testmode!(teachermodel)
 @info "teacher model OK"
 
 # custom functions

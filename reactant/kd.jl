@@ -1,27 +1,32 @@
 """
 Author: cirobr@GitHub
-Date: 23-Oct-2026
+Date: 29-Oct-2026
 
-Template for training vision models.
+Template for kd vision models.
 """
 
 @info "*** Project $( basename(@__FILE__) ) started ***"
 cd(@__DIR__)
 
 ### arguments
-envpath       = "../"
-cudadevice    = 0
-epochs        = 500
-minibatchsize = 8
-accum_steps   = 2
-debugflag     = true
+envpath     = "../"
+cudadevice  = 0
+epochs      = 500
+train_batch = 8
+accum_steps = 2
+valid_batch = train_batch * accum_steps
+debugflag   = true
 
 
 ### libs
 using Pkg
 Pkg.activate(expanduser(envpath))
+
 using Flux, Reactant
-dev = reactant_device()
+dev = reactant_device()   # a Reactant device object; call once and reuse
+import Flux: cpu
+
+using Metalhead
 using TinyMachines
 using Images
 using DataAugmentation
@@ -40,8 +45,11 @@ using ProgressBars
 import Statistics: mean, minimum, maximum, norm, std, median
 
 # private libs
+include("learn.jl")
+
 using LibFluxML
 import LibFluxML: acc_score, f1_score, iou_score, per_class_iou   # metrics
+using PreprocessingImages; p=PreprocessingImages
 import PreprocessingImages: get_normalization_params
 using LibDataAug
 import LibDataAug: apply_data_augmentation
@@ -56,11 +64,28 @@ LibCUDA.cleangpu()
 const imagesize = (500,500)   # original size
 const framesize = (256,256)   # resized size
 const classnrs  = pv.class_numbers   # 0:20
-const C_out = length(classnrs)
+const C_out = 1024
 C_in = 3
 # C_in = 1
 colorflag =  C_in == 3 ? true : false
 
+# imagenet constants
+const imagenet_means = Float32[0.485, 0.456, 0.406]
+const imagenet_stds  = Float32[0.229, 0.224, 0.225]
+
+
+# teacher model
+@info "loading teacher model..."
+# size(fs[1]) = (64, 64, 64, 1)
+# size(fs[2]) = (64, 64, 256, 1)
+# size(fs[3]) = (32, 32, 512, 1)
+# unet encoder -> size(fs[4]) = (16, 16, 1024, 1)
+# size(fs[5]) = (8, 8, 2048, 1)
+teachermodel = Metalhead.backbone(ResNet(50; pretrain=true)) |> dev
+testmode!(teachermodel)
+x = randn(Float32, (framesize...,3,1)) |> dev
+teachermodel_compiled = Reactant.@compile teachermodel(x)
+@info "teacher model OK"
 
 # custom functions
 function get_image(path::String; colorflag::Bool=true)
@@ -69,12 +94,25 @@ function get_image(path::String; colorflag::Bool=true)
 end
 
 # Pascal VOC mask PNG to integers conversion
-to_ids(mask) = mask.index
+# to_ids(mask) = mask.index
 
-function get_mask(path::String)
-      return Images.load(expanduser(path)) |> mask->to_ids(mask) .|> Int16
+function get_mask(x::AbstractArray)
+      # return Images.load(expanduser(path)) |> mask->to_ids(mask) .|> Int16
+      return Flux.activations(teachermodel_compiled, dev(x))[4] |> cpu
 end
 
+function normalize_tensor(x::AbstractArray; means::AbstractVector, stds::AbstractVector)
+      n = size(means)[1]
+      @assert n ∈ [1,3]
+      @assert n == size(stds)[1]
+
+      if n == 3
+            means = reshape(means, (1,1,3))
+            stds  = reshape(stds,  (1,1,3))
+      end
+      
+      return (x .- means) ./ (stds)
+end
 
 # images augmentation
 const short_sides = 320:500
@@ -138,8 +176,9 @@ dfvalid = df[val_idx, :]
 if debugflag
       dftrain = first(dftrain, 3)
       dfvalid = first(dfvalid, 2)
-      minibatchsize = 1
+      train_batch = 1
       accum_steps = 1
+      valid_batch = 1
       epochs  = 2
 end
 # end debug mode
@@ -152,46 +191,42 @@ Nvalid = size(dfvalid, 1)
 # calculate normalization parameters and class frequencies
 @info "calculating parameters ..."
 Xs = Array{Float32,4}(undef, (framesize...,C_in,Ntrain))
-ys = Array{Bool,4}(undef, (framesize...,C_out,Ntrain))
+# ys = Array{Bool,4}(undef, (framesize...,C_out,Ntrain))
 
 FLoops.@floop for i in 1:Ntrain
       img  = get_image(expanduser(dftrain.X[i]); colorflag=colorflag)
-      mask = get_mask(expanduser(dftrain.y[i]))
+      # mask = get_mask(expanduser(dftrain.y[i]))
       
-      img, mask = apply_data_augmentation(img, mask;
+      img = apply_data_augmentation(img;
                         intensity_tfm = intensity_validpipe,
                         geometric_tfm = geometric_validpipe,
-                        image_to_tensor_tfm  = ImageToTensor(),
-                        target_to_tensor_tfm = OneHot(),
       )
-      Xs[:,:,:,i] = img
-      ys[:,:,:,i] = mask[:,:,1:C_out] .|> Bool
+      Xs[:,:,:,i] = p.image2Float32(img)
+      # ys[:,:,:,i] = convert_mask_to_tensor(mask)
 end
 
 # normalization statistics
 means, stds = get_normalization_params(Xs)
 means = means |> x->trunc.(x,digits=3) .|> Float32
 stds  = stds  |> x->trunc.(x,digits=3) .|> Float32
-
-# imagenet statistics
-# means = Float32[0.485, 0.456, 0.406]
-# stds  = Float32[0.229, 0.224, 0.225]
+# means = imagenet_means
+# stds  = imagenet_stds
 
 @show means
 @show stds
 @info "normalization parameters OK"
 
 # class frequencies and weights
-cs = LibFluxML.compute_class_counts(ys)
-cs = cs[2:end]   # ignore background class
-median_weights, inverse_weights, inverse_squared_weights, inverse_class_weights =
-      LibFluxML.compute_class_weights(cs)
+# cs = LibFluxML.compute_class_counts(ys)
+# cs = cs[2:end]   # ignore background class
+# median_weights, inverse_weights, inverse_squared_weights, inverse_class_weights =
+#       LibFluxML.compute_class_weights(cs)
 
-train_weights = median_weights .|> Float32 |> dev
+# train_weights = median_weights .|> Float32 |> dev
 
 Xs = nothing
 ys = nothing
-@info "loss weights OK"
+# @info "loss weights OK"
 
 
 # data loading
@@ -199,15 +234,11 @@ struct PascalVocDataset
     df::DataFrame
     intensity_tfm
     geometric_tfm
-    image_to_tensor_tfm
-    target_to_tensor_tfm
 end
 
 # dataset interface
 # σnoise = 0.02
-image_to_tensor_train = ImageToTensor() |> Normalize(means, stds) #|> GaussianNoise(σnoise)
-image_to_tensor_valid = ImageToTensor() |> Normalize(means, stds)
-mask_to_tensor = OneHot()
+# image_to_tensor_train = ImageToTensor() |> Normalize(means, stds) #|> GaussianNoise(σnoise)
 
 Flux.numobs(d::PascalVocDataset) = nrow(d.df)
 
@@ -215,17 +246,21 @@ function Flux.getobs(d::PascalVocDataset, i::Int)
       row = d.df[i, :]
       
       img  = get_image(expanduser(row.X); colorflag=colorflag)
-      mask = get_mask(expanduser(row.y))
+      # mask = get_mask(expanduser(row.y))
     
-      img, mask = apply_data_augmentation(img, mask;
+      img = apply_data_augmentation(img;
                         intensity_tfm = d.intensity_tfm,
                         geometric_tfm = d.geometric_tfm,
-                        image_to_tensor_tfm  = d.image_to_tensor_tfm,
-                        target_to_tensor_tfm = d.target_to_tensor_tfm,
       )
 
-      X = img
-      y = mask[:,:,1:C_out]# .|> Int8 # .|> Bool
+      img_float = p.image2Float32(img)
+      X = normalize_tensor(img_float; means=means, stds=stds)
+      # X = convert_image_to_tensor(img)
+
+      # y = convert_mask_to_tensor(mask)
+      y_norm = normalize_tensor(img_float; means=imagenet_means, stds=imagenet_stds)
+      y = get_mask( insertdims(y_norm, dims=4) ) |> x->dropdims(x, dims=4)
+      
       return (X, y)
 end
 
@@ -237,20 +272,16 @@ end
 train_dataset = PascalVocDataset(dftrain,
                               intensity_trainpipe,
                               geometric_trainpipe,
-                              image_to_tensor_train,
-                              mask_to_tensor,
 )
 
 valid_dataset = PascalVocDataset(dfvalid,
                               intensity_validpipe,
                               geometric_validpipe,
-                              image_to_tensor_valid,
-                              mask_to_tensor,
 )
 
 # data loaders
 train_loader = Flux.DataLoader(train_dataset,
-                        batchsize=minibatchsize,
+                        batchsize=train_batch,
                         buffer=true,
                         collate=true,
                         parallel=true,
@@ -258,7 +289,7 @@ train_loader = Flux.DataLoader(train_dataset,
 )
 
 valid_loader = Flux.DataLoader(valid_dataset,
-                        batchsize=minibatchsize * accum_steps,
+                        batchsize=valid_batch,
                         buffer=true,
                         collate=true,
                         parallel=true,
@@ -273,13 +304,7 @@ function evaluate_model(model, X, y)
       return (yhat, y)
 end
 
-# paper-faithful:    edrops=(0.0, 0.0, 0.0, 0.0, 0.5), ddrops=(0.0, 0.0, 0.0, 0.0)
-# mild overfitting:  edrops=(0.0, 0.0, 0.10, 0.20, 0.25), ddrops=(0.0, 0.0, 0.10, 0.20)
-# clear overfitting: edrops=(0.05, 0.10, 0.15, 0.20, 0.30), ddrops=(0.00, 0.05, 0.10, 0.15)
-edrops=(0.00, 0.10, 0.15, 0.20, 0.30)
-ddrops=(0.00, 0.05, 0.10, 0.15)
-
-modelcpu = unet5(C_in, C_out; activation=leakyrelu, edrops=edrops, ddrops=ddrops)
+modelcpu = TinyMachines.UNet(C_in, C_out; activation=leakyrelu).encoder
 # fpfn = "../2.baseline/models/dfl_2e-3_part2/bestmodel.jld2"
 # LibFluxML.loadModelState!(fpfn, modelcpu)
 # @info "model loaded from $fpfn"
@@ -296,45 +321,34 @@ end
 (X,y) = first(train_loader)
 X = X |> dev
 y = y |> dev
-yhat = Reactant.@jit model(X)
-@assert false
-loss = Flux.mse(yhat, y)
-loss = lossfn(forward, X, y)   # the model is the first argument (follows Flux.train! >= 0.13.9)
+loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.train! >= 0.13.9)
 @assert !isnan(loss) || error("model checkpoint failure")
 @info "model checkpoint OK"
-@assert false
 
 
 # loss functions
+"""
+NOTE: T² factor applies to log-based losses such as kldivergence and cross-entropy, but not to mse.
+The mse loss is already scaled by the temperature factor in the softmax function.
+"""
+T = 1   ### Distillation temperature: T=1 for encoder, T=3 or 4 for logits.
+
 function trainLossFunction(model,X,y)
       yhat, y = evaluate_model(model, X, y)
-      return LibFluxML.ce_loss(yhat, y;
-                  logits=true,
-                  include_background=false,
-                  exclude_voids=true,
-                  weights=train_weights,
-                  reduction=:mean,
-                  device=dev,
-      )
+      return (T*T) * LibFluxML.softloss(yhat, y, Flux.kldivergence; T=T, dims=3)
 end
 
 function validLossFunction(model,X,y)
       yhat, y = evaluate_model(model, X, y)
-      return LibFluxML.iou_loss(yhat, y;
-                  logits=true,
-                  include_background=false,
-                  exclude_voids=true,
-                  reduction=:mean,
-                  device=dev,
-      )
+      return LibFluxML.softloss(yhat, y, Flux.kldivergence; T=1, dims=3)
 end
 @info "loss functions OK"
 
 
 # optimizer & scheduler
-lr  = 5e-5
-lr2 = 1e-4          # or even 5e-5
-lr3 = 1e-5
+lr  = 1e-4
+lr2 = 2e-4
+lr3 = 5e-5
 β  = (0.9, 0.999)
 λ  = 5e-5           # or 1e-4
 # cn = 1.0    # clip norm
@@ -362,52 +376,78 @@ scheduler = Sequence(raising_part => T1, cosine_part => T2, constant_part => T3)
 
 
 # one-number metrics
-function acc_score(model,X,y)
+function mae(model,X,y)
       yhat, y = evaluate_model(model, X, y)
-      return acc_score(yhat, y; logits=true, exclude_voids=true, device=dev)
+      return Flux.mae(yhat, y)
 end
 
-function f1_score(model,X,y)
+function mse(model,X,y)
       yhat, y = evaluate_model(model, X, y)
-      return f1_score(yhat, y; logits=true, exclude_voids=true, device=dev)
+      return Flux.mse(yhat, y)
 end
 
-function iou_score(model,X,y)
+function kldiv(model,X,y)
       yhat, y = evaluate_model(model, X, y)
-      return iou_score(yhat, y; logits=true, exclude_voids=true, device=dev)
+      return Flux.kldivergence(yhat, y)
 end
 
-function mean_iou(model,X,y)
+function soft_cos_loss(model,X,y)
       yhat, y = evaluate_model(model, X, y)
-      return per_class_iou(yhat, y; logits=true, exclude_voids=true, reduction=:mean, device=dev)
+      return LibFluxML.softloss(yhat, y, LibFluxML.cosine_loss; T=1, dims=3)
 end
 
-function validCE(model, X, y)
-    yhat, y = evaluate_model(model, X, y)
-    return LibFluxML.ce_loss(yhat, y;
-            logits=true, include_background=false, exclude_voids=true,
-            weights=train_weights, reduction=:mean, device=dev)
+function soft_mae(model,X,y)
+      yhat, y = evaluate_model(model, X, y)
+      return LibFluxML.softloss(yhat, y, Flux.mae; T=1, dims=3)
+end
+
+function soft_mse(model,X,y)
+      yhat, y = evaluate_model(model, X, y)
+      return LibFluxML.softloss(yhat, y, Flux.mse; T=1, dims=3)
+end
+
+function soft_kldiv(model,X,y)
+      yhat, y = evaluate_model(model, X, y)
+      return LibFluxML.softloss(yhat, y, Flux.kldivergence; T=1, dims=3)
+end
+
+kldiv_mse_ratio(model,X,y)      = kldiv(model,X,y) / mse(model,X,y)
+soft_kldiv_mse_ratio(model,X,y) = soft_kldiv(model,X,y) / soft_mse(model,X,y)
+
+const ssim_conv = LibFluxML.make_ssim_conv(C_out; kernel_size=11, σ=1.5f0) |> dev
+function ssim(model,X,y)
+      yhat, y = evaluate_model(model, X, y)
+      return LibFluxML.ssim(yhat,y; SSIM_CONV=ssim_conv)
 end
 
 metrics = [
-      acc_score,
-      f1_score,
-      iou_score,
-      mean_iou,
-      validCE,
+      mae,
+      mse,
+      # kldiv,
+      soft_cos_loss,
+      soft_mae,
+      soft_mse,
+      soft_kldiv,
+      # kldiv_mse_ratio,
+      soft_kldiv_mse_ratio,
+      ssim,
 ]
-
-# per-class metrics
-function per_class_iou_score(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return per_class_iou(yhat, y; logits=true, exclude_voids=true, device=dev)
-end
 @info "metrics OK"
 
 
 # tensorboard logger
 logger = TBLogger(expanduser(tblogsfolder))
 @info "tensorboard logger OK"
+
+
+# warmup training
+@info "warmup training..."
+loader = first(train_loader, 1) .|> dev
+Flux.train!(model, loader, optimizerState) do m, x, y
+      trainLossFunction(m, x, y)
+end
+loader = nothing
+@info "warmup OK"
 
 
 ###########################################
@@ -429,11 +469,6 @@ stop_monitor.patience = 5
 LibCUDA.cleangpu()
 reset!(logger)
 
-# warmup training
-loader = first(train_loader)
-Flux.train!(trainLossFunction, model, loader, optimizerState)
-@assert false
-
 validlosses = []
 # for epoch in 1:epochs
 for (eta, epoch) in zip(scheduler, 1:epochs)
@@ -445,14 +480,14 @@ for (eta, epoch) in zip(scheduler, 1:epochs)
       @printf "Learning rate: %.3e \n\n" eta
 
       # train epoch
-      trainloss = trainEpoch!(trainLossFunction, model, train_loader, optimizerState;
-                        device=dev
-      )
+      trainloss = 
+            trainEpoch!(trainLossFunction, model, train_loader, optimizerState; device=dev)
       @assert !isnan(trainloss) || error("training loss is NaN")
       @printf "Training loss: %.4f \n\n" trainloss
 
       # evaluate epoch
-      validloss, validmetrics = evaluateEpoch(validLossFunction, model, valid_loader, metrics)
+      validloss, validmetrics = 
+            evaluateEpoch(validLossFunction, model, valid_loader, metrics; device=dev)
       @assert !isnan(validloss) || error("validation loss is NaN")
       @printf "Validation loss: %.4f \n" validloss
 
@@ -469,12 +504,12 @@ for (eta, epoch) in zip(scheduler, 1:epochs)
       println()
 
       # per-class IoU
-      losses = LibFluxML.evaluatePerClassMetric(model, valid_loader, per_class_iou_score)
-      println("Per-class IoU:")
-      for (i, loss) in enumerate(losses)
-            @printf "   IoU Class %d: %.4f \n" classnrs[i] loss
-      end
-      println()
+      # losses = LibFluxML.evaluatePerClassMetric(model, valid_loader, per_class_iou_score)
+      # println("Per-class IoU:")
+      # for (i, loss) in enumerate(losses)
+      #       @printf "   IoU Class %d: %.4f \n" classnrs[i] loss
+      # end
+      # println()
 
       # log data
       Base.with_logger(logger) do
@@ -487,10 +522,10 @@ for (eta, epoch) in zip(scheduler, 1:epochs)
                   @info "Metric/Validation/$metric_name" metric=value log_step_increment=0
             end
             
-            for (i, loss) in enumerate(losses)   # log per-class IoU
-                  class_name = "Class $(classnrs[i])"
-                  @info "Metric/Validation/IoU/$class_name" metric=loss log_step_increment=0
-            end
+            # for (i, loss) in enumerate(losses)   # log per-class IoU
+            #       class_name = "Class $(classnrs[i])"
+            #       @info "Metric/Validation/IoU/$class_name" metric=loss log_step_increment=0
+            # end
       end
 
       # model checkpoint & early stopping
@@ -515,6 +550,7 @@ mv(expanduser(modelsfolder) * "model.jld2", expanduser(modelsfolder) * "bestmode
 
 
 # cleanup
+teachermodel = nothing
 modelcpu = nothing
 model    = nothing
 LibCUDA.cleangpu()
