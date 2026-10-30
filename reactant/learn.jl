@@ -1,23 +1,19 @@
+using ProgressBars; pb=ProgressBars
+
 # Flux.train!(loss, model, data, opt_state)
-function trainEpoch!(lossfn, model, data, optstate; verbose=false, device=gpu)
+function trainEpoch!(lossfn, model, data, optstate; verbose=false, device)
     losses = Vector{Float32}(undef, length(data))
-    grads = nothing
 
     for (i, (X,y)) in pb.ProgressBar( enumerate(data) )
-        X = X |> device
-        y = y |> device
-        loss, grads = Flux.withgradient(model) do m
-            lossfn(m, X, y)
-        end
-
-        Flux.update!(optstate, model, grads[1])
+        Xd = X |> device
+        yd = y |> device
+        loss = Flux.trainstep!(lossfn, model, (Xd,yd), optstate)
         losses[i] = loss
     end
 
     epochloss = mean(losses)
-    epochgrads = grads[1]
 
-    if verbose   return epochloss, losses, epochgrads
+    if verbose   return epochloss, losses
     else         return epochloss
     end
 end

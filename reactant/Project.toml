@@ -15,9 +15,11 @@ ParameterSchedulers = "d7d3b36b-41b8-4d0d-a2bf-768c6151755e"
 PascalVocTools = "3fdd8fd9-3429-41df-93e4-b1e51c23000a"
 PreprocessingImages = "6a52935f-723c-4a2a-832b-626b8fc4f182"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+ProgressBars = "49802e3a-d2f1-5c88-81d8-b72133a6f568"
 Reactant = "3c362404-f566-11ee-1572-e11a4b42c853"
 TensorBoardLogger = "899adc3e-224a-11e9-021f-63837185c80f"
 TinyMachines = "5d0fdf5f-995e-4f1b-a9e8-363392c4fe32"
+cuDNN = "02a925ec-e4fe-4b08-9a7e-0d78e3d38ccd"
 
 [sources]
 LibCUDA = {rev = "main", url = "git@github.com:cirobr/LibCUDA.jl.git"}

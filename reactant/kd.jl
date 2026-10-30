@@ -9,7 +9,7 @@ Template for kd vision models.
 cd(@__DIR__)
 
 ### arguments
-envpath     = "../"
+envpath     = "./"
 cudadevice  = 0
 epochs      = 500
 train_batch = 8
@@ -30,7 +30,7 @@ using Metalhead
 using TinyMachines
 using Images
 using DataAugmentation
-using OffsetArrays
+# using OffsetArrays
 using DataFrames
 using MLUtils
 using ParameterSchedulers
@@ -41,7 +41,7 @@ using JLD2
 using TensorBoardLogger
 using FLoops
 using Printf
-using ProgressBars
+# using ProgressBars
 import Statistics: mean, minimum, maximum, norm, std, median
 
 # private libs
@@ -81,7 +81,7 @@ const imagenet_stds  = Float32[0.229, 0.224, 0.225]
 # size(fs[3]) = (32, 32, 512, 1)
 # unet encoder -> size(fs[4]) = (16, 16, 1024, 1)
 # size(fs[5]) = (8, 8, 2048, 1)
-teachermodel = Metalhead.backbone(ResNet(50; pretrain=true)) |> dev
+teachermodel = Metalhead.backbone(ResNet(50; pretrain=true))[1:4] |> dev
 testmode!(teachermodel)
 x = randn(Float32, (framesize...,3,1)) |> dev
 teachermodel_compiled = Reactant.@compile teachermodel(x)
@@ -98,8 +98,12 @@ end
 
 function get_mask(x::AbstractArray)
       # return Images.load(expanduser(path)) |> mask->to_ids(mask) .|> Int16
-      return Flux.activations(teachermodel_compiled, dev(x))[4] |> cpu
+      # return Flux.activations(teachermodel_compiled, dev(x))[4] |> cpu
+      # return Flux.activations(teachermodel, x)[4] |> cpu
+      return teachermodel_compiled(dev(x)) |> cpu
 end
+# get_mask = Reactant.@compile get_mask_plain(x)
+
 
 function normalize_tensor(x::AbstractArray; means::AbstractVector, stds::AbstractVector)
       n = size(means)[1]
@@ -312,20 +316,6 @@ model = modelcpu |> dev
 @info "model OK"
 
 
-# model checkpoint
-function lossfn(model, X, y)   # loss function for testing purposes only
-      yhat, y = evaluate_model(model, X, y)
-      return Flux.mse(yhat, y)
-end
-
-(X,y) = first(train_loader)
-X = X |> dev
-y = y |> dev
-loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.train! >= 0.13.9)
-@assert !isnan(loss) || error("model checkpoint failure")
-@info "model checkpoint OK"
-
-
 # loss functions
 """
 NOTE: T² factor applies to log-based losses such as kldivergence and cross-entropy, but not to mse.
@@ -365,13 +355,13 @@ opt = OptimiserChain(
 optimizerState = Flux.setup(opt, model)
 # Flux.freeze!(optimizerState.encoder)
 
-T1 = 8
-T2 = 100
-T3 = 500 - (T1+T2)
-raising_part  = Triangle(l0=lr, l1=lr2, period=2*T1) # 1/2 period triangle
-cosine_part   = CosAnneal(l0=lr2, l1=lr3, period=T2, restart=false)
-constant_part = lr3
-scheduler = Sequence(raising_part => T1, cosine_part => T2, constant_part => T3)
+# T1 = 8
+# T2 = 100
+# T3 = 500 - (T1+T2)
+# raising_part  = Triangle(l0=lr, l1=lr2, period=2*T1) # 1/2 period triangle
+# cosine_part   = CosAnneal(l0=lr2, l1=lr3, period=T2, restart=false)
+# constant_part = lr3
+# scheduler = Sequence(raising_part => T1, cosine_part => T2, constant_part => T3)
 @info "optimizer OK"
 
 
@@ -436,18 +426,14 @@ metrics = [
 
 
 # tensorboard logger
-logger = TBLogger(expanduser(tblogsfolder))
-@info "tensorboard logger OK"
+# logger = TBLogger(expanduser(tblogsfolder))
+# @info "tensorboard logger OK"
 
 
-# warmup training
-@info "warmup training..."
-loader = first(train_loader, 1) .|> dev
-Flux.train!(model, loader, optimizerState) do m, x, y
-      trainLossFunction(m, x, y)
-end
-loader = nothing
-@info "warmup OK"
+# compile model
+# (X,y) = first(train_loader) .|> dev
+# trainmode!(model)
+# step! = Reactant.@compile trainEpoch!(trainLossFunction,model,(X,y),optimizerState;device=dev)   # compile once
 
 
 ###########################################
@@ -467,92 +453,33 @@ stop_monitor.patience = 5
 
 # training loop
 LibCUDA.cleangpu()
-reset!(logger)
+# reset!(logger)
 
 validlosses = []
-# for epoch in 1:epochs
-for (eta, epoch) in zip(scheduler, 1:epochs)
+for epoch in 1:epochs
+# for (eta, epoch) in zip(scheduler, 1:epochs)
       LibCUDA.garbage_collection()
       # LibCUDA.cleangpu()
 
       @printf "*** Epoch %d/%d ***\n" epoch epochs
-      Flux.adjust!(optimizerState, eta)
-      @printf "Learning rate: %.3e \n\n" eta
+      # Flux.adjust!(optimizerState, eta)
+      # @printf "Learning rate: %.3e \n\n" eta
 
       # train epoch
-      trainloss = 
-            trainEpoch!(trainLossFunction, model, train_loader, optimizerState; device=dev)
+      trainlosses = []
+      for (X,y) in train_loader
+            Xd = dev(X)
+            yd = dev(y)
+            steploss = Flux.trainstep!(trainLossFunction, model, (Xd,yd), optimizerState)
+            push!(trainlosses, steploss)
+      end
+      trainloss = mean(trainlosses)
       @assert !isnan(trainloss) || error("training loss is NaN")
       @printf "Training loss: %.4f \n\n" trainloss
 
-      # evaluate epoch
-      validloss, validmetrics = 
-            evaluateEpoch(validLossFunction, model, valid_loader, metrics; device=dev)
-      @assert !isnan(validloss) || error("validation loss is NaN")
-      @printf "Validation loss: %.4f \n" validloss
-
-      push!(validlosses, validloss)
-      avg_valid_loss = LibFluxML.last_n_average(validlosses, 3)
-      @assert !isnan(avg_valid_loss) || error("average validation loss is NaN")
-      @printf "Avg validation loss: %.4f \n" avg_valid_loss
-
-      for metric in zip(metrics, validmetrics)
-            metric_name  = nameof(metric[1])
-            metric_value = metric[2]
-            @printf "   %s: %.4f \n" metric_name metric_value
-      end
-      println()
-
-      # per-class IoU
-      # losses = LibFluxML.evaluatePerClassMetric(model, valid_loader, per_class_iou_score)
-      # println("Per-class IoU:")
-      # for (i, loss) in enumerate(losses)
-      #       @printf "   IoU Class %d: %.4f \n" classnrs[i] loss
-      # end
-      # println()
-
-      # log data
-      Base.with_logger(logger) do
-            @info "Loss/Training" train_loss=trainloss
-            @info "Loss/Validation" valid_loss=validloss log_step_increment=0
-            @info "Loss/Avg_Validation" avg_valid_loss=avg_valid_loss log_step_increment=0
-
-            for (metric, value) in zip(metrics, validmetrics)   # log metrics
-                  metric_name = nameof(metric)
-                  @info "Metric/Validation/$metric_name" metric=value log_step_increment=0
-            end
-            
-            # for (i, loss) in enumerate(losses)   # log per-class IoU
-            #       class_name = "Class $(classnrs[i])"
-            #       @info "Metric/Validation/IoU/$class_name" metric=loss log_step_increment=0
-            # end
-      end
-
-      # model checkpoint & early stopping
-      push!(model_monitor.validation_losses, validloss)
-      _ = early_stop!(model_monitor)
-
-      push!(stop_monitor.validation_losses, avg_valid_loss)
-      earlystop = early_stop!(stop_monitor)
-
-      if model_monitor.improved_validation
-            LibFluxML.saveModelState(expanduser(modelsfolder) * "model.jld2", model)
-      end
-      if earlystop   break   end
 end # epochs
 
-close(logger)
-
-
-# rename the best model state
-mv(expanduser(modelsfolder) * "model.jld2", expanduser(modelsfolder) * "bestmodel.jld2", force=true)
-@info "training OK"
-
-
-# cleanup
-teachermodel = nothing
-modelcpu = nothing
-model    = nothing
+# close(logger)
 LibCUDA.cleangpu()
 @info "*** Project $( basename(@__FILE__) ) finished ***"
 println()
