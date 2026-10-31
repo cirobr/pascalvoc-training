@@ -27,7 +27,7 @@ function evaluateEpoch(lossfn, model, data, metrics; device=gpu)
     total_metrics = zeros(Float32, n_metrics)
 
     for (X, y) in pb.ProgressBar(data)
-        GC.gc()
+        GC.gc(false)
         Xd = X |> device
         yd = y |> device
         total_loss += lossfn(model, Xd, yd)
@@ -55,10 +55,9 @@ function evaluatePerClassMetric(model, data, metric; device=gpu)
     n_batches = 0
 
     for (X, y) in pb.ProgressBar(data)
-        GC.gc()
+        GC.gc(false)
         X = X |> device
         y = y |> device
-        # yhat = model(X)
         scores = metric(model, X, y)   # Vector of length C
 
         if total === nothing
