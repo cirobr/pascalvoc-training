@@ -478,7 +478,7 @@ reset!(logger)
 validlosses = []
 # for epoch in 1:epochs
 for (eta, epoch) in zip(scheduler, 1:epochs)
-      LibCUDA.garbage_collection()
+      # LibCUDA.garbage_collection()
       # LibCUDA.cleangpu()
 
       @printf "*** Epoch %d/%d ***\n" epoch epochs

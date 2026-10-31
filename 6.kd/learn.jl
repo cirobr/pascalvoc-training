@@ -19,7 +19,7 @@ end
 trainModel! = trainEpoch!
 
 
-function evaluateEpoch(lossfn, model, data, metrics; device=gpu)
+function evaluateEpoch(lossfn, model, data, metrics; device)
     n_metrics = length(metrics)
     
     total_loss = 0.0
@@ -27,7 +27,6 @@ function evaluateEpoch(lossfn, model, data, metrics; device=gpu)
     total_metrics = zeros(Float32, n_metrics)
 
     for (X, y) in pb.ProgressBar(data)
-        GC.gc(false)
         Xd = X |> device
         yd = y |> device
         total_loss += lossfn(model, Xd, yd)
@@ -37,6 +36,7 @@ function evaluateEpoch(lossfn, model, data, metrics; device=gpu)
         end
         
         n_batches += 1
+        GC.gc(false)
     end
 
     avg_loss = total_loss / n_batches
@@ -50,12 +50,11 @@ testModel     = evaluateEpoch
 evaluateModel = evaluateEpoch
 
 
-function evaluatePerClassMetric(model, data, metric; device=gpu)
+function evaluatePerClassMetric(model, data, metric; device)
     total = nothing      # will be initialized on first batch
     n_batches = 0
 
     for (X, y) in pb.ProgressBar(data)
-        GC.gc(false)
         X = X |> device
         y = y |> device
         scores = metric(model, X, y)   # Vector of length C
@@ -67,10 +66,7 @@ function evaluatePerClassMetric(model, data, metric; device=gpu)
 
         total .+= scores
         n_batches += 1
-    end
-
-    if n_batches == 0
-        error("Data loader is empty")
+        GC.gc(false)
     end
 
     return total ./ n_batches
