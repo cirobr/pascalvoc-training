@@ -20,6 +20,7 @@ trainModel! = trainEpoch!
 
 
 function evaluateEpoch(lossfn, model, data, metrics; device)
+    Flux.testmode!(model)
     n_metrics = length(metrics)
     
     total_loss = 0.0
@@ -51,6 +52,7 @@ evaluateModel = evaluateEpoch
 
 
 function evaluatePerClassMetric(model, data, metric; device)
+    Flux.testmode!(model)
     total = nothing      # will be initialized on first batch
     n_batches = 0
 
