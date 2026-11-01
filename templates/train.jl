@@ -1,6 +1,6 @@
 """
 Author: cirobr@GitHub
-Date: 29-Oct-2026
+Date: 01-Nov-2026
 
 Template for training vision models.
 """
@@ -52,6 +52,7 @@ using ProgressBars
 import Statistics: mean, minimum, maximum, norm, std, median
 
 # private libs
+using LibCUDA
 using LibFluxML
 import LibFluxML: acc_score, f1_score, iou_score, per_class_iou   # metrics
 using PreprocessingImages; p=PreprocessingImages
@@ -60,9 +61,6 @@ using LibDataAug
 import LibDataAug: apply_data_augmentation
 using PascalVocTools; const pv=PascalVocTools
 include("../library/channel_augmentation_functions.jl")
-
-using LibCUDA
-LibCUDA.cleangpu()
 
 
 # dataset constants
@@ -464,7 +462,7 @@ reset!(logger)
 validlosses = []
 # for epoch in 1:epochs
 for (eta, epoch) in zip(scheduler, 1:epochs)
-      LibCUDA.garbage_collection()
+      # LibCUDA.garbage_collection()
       # LibCUDA.cleangpu()
 
       @printf "*** Epoch %d/%d ***\n" epoch epochs
@@ -496,7 +494,7 @@ for (eta, epoch) in zip(scheduler, 1:epochs)
       println()
 
       # per-class IoU
-      losses = LibFluxML.evaluatePerClassMetric(model, valid_loader, per_class_iou_score)
+      losses = LibFluxML.evaluatePerClassMetric(model, valid_loader, per_class_iou_score; device=dev)
       println("Per-class IoU:")
       for (i, loss) in enumerate(losses)
             @printf "   IoU Class %d: %.4f \n" classnrs[i] loss

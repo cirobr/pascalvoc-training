@@ -1005,10 +1005,10 @@ version = "0.3.31"
 
 [[deps.IRTools]]
 deps = ["InteractiveUtils", "MacroTools"]
-git-tree-sha1 = "905e58ad68dd7d75a616a347bc0b5b39a89b9ec0"
+git-tree-sha1 = "eb7dbaba9b60b122c6526b369291695d25e4128a"
 registries = "General"
 uuid = "7869d1d1-7146-5819-86e3-90919afe41df"
-version = "0.4.24"
+version = "0.4.25"
 
 [[deps.IfElse]]
 git-tree-sha1 = "debdd00ffef04665ccbb3e150747a77560e8fad1"
@@ -1487,11 +1487,11 @@ version = "0.0.1-DEV"
 
 [[deps.LibFluxML]]
 deps = ["Flux", "ImageCore", "JLD2", "ProgressBars", "Statistics"]
-git-tree-sha1 = "407077c46ef4f6d2cb240f6e1e4feb82b5319489"
+git-tree-sha1 = "82e39d9388adf5874b14d25adf89100ef685e3ad"
 repo-rev = "main"
 repo-url = "git@github.com:cirobr/LibFluxML.jl.git"
 uuid = "06a27b3f-e48e-4378-94d6-12b963ed26a7"
-version = "0.0.64"
+version = "0.0.65"
 
 [[deps.LibGit2]]
 deps = ["LibGit2_jll", "NetworkOptions", "Printf", "SHA"]
