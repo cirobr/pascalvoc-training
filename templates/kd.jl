@@ -1,6 +1,6 @@
 """
 Author: cirobr@GitHub
-Date: 30-Oct-2026
+Date: 01-Nov-2026
 
 Template for kd vision models.
 """
@@ -53,6 +53,7 @@ using ProgressBars
 import Statistics: mean, minimum, maximum, norm, std, median
 
 # private libs
+using LibCUDA
 using LibFluxML
 import LibFluxML: acc_score, f1_score, iou_score, per_class_iou   # metrics
 using PreprocessingImages; p=PreprocessingImages
@@ -61,9 +62,6 @@ using LibDataAug
 import LibDataAug: apply_data_augmentation
 using PascalVocTools; const pv=PascalVocTools
 include("../library/channel_augmentation_functions.jl")
-
-using LibCUDA
-LibCUDA.cleangpu()
 
 
 # dataset constants
@@ -476,9 +474,6 @@ reset!(logger)
 validlosses = []
 # for epoch in 1:epochs
 for (eta, epoch) in zip(scheduler, 1:epochs)
-      LibCUDA.garbage_collection()
-      # LibCUDA.cleangpu()
-
       @printf "*** Epoch %d/%d ***\n" epoch epochs
       Flux.adjust!(optimizerState, eta)
       @printf "Learning rate: %.3e \n\n" eta
