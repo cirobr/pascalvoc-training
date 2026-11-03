@@ -2,7 +2,7 @@
 
 julia_version = "1.13.3"
 manifest_format = "2.1"
-project_hash = "20ef9320098784dadf15f5a041f9ad71b4db2024"
+project_hash = "498718745fa746a082a0195cc16e61bccf93090a"
 
 [[deps.ADTypes]]
 deps = ["PrecompileTools"]
@@ -195,10 +195,10 @@ version = "0.4.8"
 
 [[deps.BFloat16s]]
 deps = ["LinearAlgebra", "Printf", "Random"]
-git-tree-sha1 = "a708326ef8415d0d66c3b2719da68f3f23234f8f"
+git-tree-sha1 = "5f866fe1b4890785975a933a452946507660a9d6"
 registries = "General"
 uuid = "ab4f0b2a-ad5b-11e8-123f-65d77653426b"
-version = "0.6.3"
+version = "0.6.4"
 
 [[deps.BSON]]
 git-tree-sha1 = "4c3e506685c527ac6a54ccc0c8c76fd6f91b42fb"
@@ -238,12 +238,6 @@ git-tree-sha1 = "aebf55e6d7795e02ca500a689d326ac979aaf89e"
 registries = "General"
 uuid = "9718e550-a3fa-408a-8086-8db961cd8217"
 version = "0.1.1"
-
-[[deps.Bessels]]
-git-tree-sha1 = "4435559dc39793d53a9e3d278e185e920b4619ef"
-registries = "General"
-uuid = "0e736298-9ec6-45e8-9647-e4fc86a2fe38"
-version = "0.2.8"
 
 [[deps.BitTwiddlingConvenienceFunctions]]
 deps = ["Static"]
@@ -301,17 +295,17 @@ version = "1.3.0"
 
 [[deps.CUDA]]
 deps = ["CUDACore", "CUDATools", "Reexport", "cuBLAS", "cuFFT", "cuRAND", "cuSOLVER", "cuSPARSE"]
-git-tree-sha1 = "f460daf13f6926708b7b04fd91010072fd856aa3"
-repo-rev = "main"
-repo-url = "https://github.com/JuliaGPU/CUDA.jl.git"
+git-tree-sha1 = "c82345f5d7e0d902793b4ad5ddf61c2a8b6aac75"
+registries = "General"
 uuid = "052768ef-5323-5732-b1bb-66c8b64840ba"
-version = "6.5.0"
+version = "6.5.1"
 
 [[deps.CUDACore]]
-deps = ["Adapt", "BFloat16s", "CEnum", "CUDA_Compiler_jll", "CUDA_Driver_jll", "CUDA_Runtime_Discovery", "CUDA_Runtime_jll", "ExprTools", "GPUArrays", "GPUCompiler", "GPUToolbox", "KernelAbstractions", "KernelInterface", "LLVM", "LLVMLoopInfo", "LazyArtifacts", "Libdl", "LinearAlgebra", "Logging", "NVPTX_LLVM_Backend_jll", "PrecompileTools", "Preferences", "Printf", "Random", "Random123", "RandomNumbers", "ScopedValues", "UnsafeAtomics"]
-path = "../../.julia/packages/CUDA/FyPpr/CUDACore"
+deps = ["Adapt", "BFloat16s", "CEnum", "CUDA_Compiler_jll", "CUDA_Driver_jll", "CUDA_Runtime_Discovery", "CUDA_Runtime_jll", "GPUArrays", "GPUCompiler", "GPUToolbox", "KernelAbstractions", "KernelInterface", "LLVM", "LLVMLoopInfo", "LazyArtifacts", "Libdl", "LinearAlgebra", "Logging", "NVPTX_LLVM_Backend_jll", "PrecompileTools", "Preferences", "Printf", "Random", "Random123", "RandomNumbers", "ScopedValues", "UnsafeAtomics"]
+git-tree-sha1 = "ad63644ab7a9fca22269c196e539d6c2ad75e841"
+registries = "General"
 uuid = "bd0ed864-bdfe-4181-a5ed-ce625a5fdea2"
-version = "6.5.0"
+version = "6.5.1"
 weakdeps = ["CUDA", "ChainRulesCore", "EnzymeCore", "SpecialFunctions", "StaticArrays"]
 
     [deps.CUDACore.extensions]
@@ -322,9 +316,10 @@ weakdeps = ["CUDA", "ChainRulesCore", "EnzymeCore", "SpecialFunctions", "StaticA
 
 [[deps.CUDATools]]
 deps = ["CUDACore", "CUDA_Compiler_jll", "CUPTI", "Crayons", "GPUCompiler", "KernelInterface", "LLVM", "NVML", "NVTX", "PrecompileTools", "Preferences", "PrettyTables", "Printf", "Statistics", "demumble_jll"]
-path = "../../.julia/packages/CUDA/FyPpr/CUDATools"
+git-tree-sha1 = "de1d79e7ea89bbc09b844af32d651c77a9b6e300"
+registries = "General"
 uuid = "9ec180c6-1c07-47c7-9e6e-ebefa4d1f6d0"
-version = "6.5.0"
+version = "6.5.1"
 
 [[deps.CUDA_Compiler_jll]]
 deps = ["Artifacts", "CUDA_Driver_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "TOML"]
@@ -363,9 +358,10 @@ version = "9.27.0+0"
 
 [[deps.CUPTI]]
 deps = ["CEnum", "CUDACore", "CUDA_Runtime_Discovery", "CUDA_Runtime_jll", "GPUToolbox", "Libdl"]
-path = "../../.julia/packages/CUDA/FyPpr/lib/cupti"
+git-tree-sha1 = "8ad5ff580bd0e7455905d3f8eed0c373bd8b2882"
+registries = "General"
 uuid = "9e67e8f6-ba02-4b6c-a7db-3b11ae1e7ab7"
-version = "6.5.0"
+version = "6.5.1"
 
 [[deps.CatIndices]]
 deps = ["CustomUnitRanges", "OffsetArrays"]
@@ -449,10 +445,10 @@ version = "0.8.7"
 
 [[deps.ColorSchemes]]
 deps = ["ColorTypes", "ColorVectorSpace", "Colors", "FixedPointNumbers", "PrecompileTools", "Random"]
-git-tree-sha1 = "b0fd3f56fa442f81e0a47815c92245acfaaa4e34"
+git-tree-sha1 = "060adaf7a5c2e14bca025edf0eea0206ffdebd87"
 registries = "General"
 uuid = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
-version = "3.31.0"
+version = "3.32.0"
 
 [[deps.ColorTypes]]
 deps = ["FixedPointNumbers", "Random"]
@@ -589,15 +585,11 @@ uuid = "dc8bdbbb-1ca9-579f-8c36-e416f6a65cce"
 version = "1.0.2"
 
 [[deps.DSP]]
-deps = ["Bessels", "FFTW", "IterTools", "LinearAlgebra", "Polynomials", "Random", "Reexport", "SpecialFunctions", "Statistics"]
-git-tree-sha1 = "dd73b345b24e52d7b57550b69113261ef2d79c92"
+deps = ["Compat", "FFTW", "IterTools", "LinearAlgebra", "Polynomials", "Random", "Reexport", "SpecialFunctions", "Statistics"]
+git-tree-sha1 = "0df00546373af8eee1598fb4b2ba480b1ebe895c"
 registries = "General"
 uuid = "717857b8-e6f2-59f4-9121-6e50c889abd2"
-version = "0.8.7"
-weakdeps = ["OffsetArrays"]
-
-    [deps.DSP.extensions]
-    OffsetArraysExt = "OffsetArrays"
+version = "0.7.10"
 
 [[deps.DataAPI]]
 git-tree-sha1 = "abe83f3a2f1b857aac70ef8b269080af17764bbe"
@@ -645,7 +637,7 @@ version = "1.11.0"
 
 [[deps.DeepLab]]
 deps = ["Flux", "Metalhead"]
-git-tree-sha1 = "3ff0f28657848b3a837c489b6274986317ca7f6b"
+git-tree-sha1 = "64fb078206c0d0adbcbb01d24bfd194f0495286f"
 repo-rev = "main"
 repo-url = "git@github.com:cirobr/DeepLab.jl.git"
 uuid = "8af1ee66-1bb0-4cc4-8b8b-98ac44bdf12f"
@@ -697,10 +689,10 @@ version = "1.11.0"
 
 [[deps.Distributions]]
 deps = ["AliasTables", "FillArrays", "LinearAlgebra", "PDMats", "Printf", "QuadGK", "Random", "Roots", "SpecialFunctions", "Statistics", "StatsAPI", "StatsBase", "StatsFuns"]
-git-tree-sha1 = "2ddbc341251ed713d39e503b504593a5d6789551"
+git-tree-sha1 = "903fc89ebdfd518ef02fa121ec82c4ea70c62eb9"
 registries = "General"
 uuid = "31c24e10-a181-5473-b8eb-7969acd0382f"
-version = "0.25.132"
+version = "0.25.133"
 
     [deps.Distributions.extensions]
     DistributionsChainRulesCoreExt = "ChainRulesCore"
@@ -865,10 +857,10 @@ version = "0.16.15"
 
 [[deps.ForwardDiff]]
 deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "LinearAlgebra", "LogExpFunctions", "NaNMath", "Preferences", "Printf", "Random", "SpecialFunctions"]
-git-tree-sha1 = "3b0f72e2ffef1a139ac450725c9ecd01c0a3c050"
+git-tree-sha1 = "a55669aa77ae8bbdc7310c4027112500ff5ec874"
 registries = "General"
 uuid = "f6369f11-7733-5829-9624-2563aa707210"
-version = "1.4.6"
+version = "1.4.7"
 weakdeps = ["StaticArrays"]
 
     [deps.ForwardDiff.extensions]
@@ -906,10 +898,10 @@ version = "0.2.2"
 
 [[deps.GPUCompiler]]
 deps = ["CompilerCaching", "ExprTools", "InteractiveUtils", "LLVM", "Libdl", "Logging", "PrecompileTools", "Preferences", "REPL", "ScopedValues", "TOML", "Tracy", "UUIDs", "tree_sitter_gcn_jll", "tree_sitter_llvm_jll", "tree_sitter_ptx_jll", "tree_sitter_spirv_jll"]
-git-tree-sha1 = "5a50d015b5ef7d39f044b1b32836dc66aa67cfc3"
+git-tree-sha1 = "38bd93ada3664b5b5e460edea7fc6a4bdb8b3942"
 registries = "General"
 uuid = "61eb1bfa-7361-4325-ad38-22787b887f55"
-version = "2.19.0"
+version = "2.20.0"
 
     [deps.GPUCompiler.extensions]
     CthulhuExt = "Cthulhu"
@@ -1164,13 +1156,14 @@ version = "1.0.0"
 
 [[deps.InfiniteArrays]]
 deps = ["ArrayLayouts", "FillArrays", "Infinities", "LazyArrays", "LinearAlgebra"]
-git-tree-sha1 = "e61675cbcf3ce57ea3566b0abcfe46e4a521bf6f"
+git-tree-sha1 = "10faeb745d3b22170113dbc0561b68b44bcc0363"
 registries = "General"
 uuid = "4858937d-0d70-526a-a4dd-2d5cb5dd786c"
-version = "0.12.15"
-weakdeps = ["Statistics"]
+version = "0.14.4"
+weakdeps = ["DSP", "Statistics"]
 
     [deps.InfiniteArrays.extensions]
+    InfiniteArraysDSPExt = "DSP"
     InfiniteArraysStatisticsExt = "Statistics"
 
 [[deps.Infinities]]
@@ -1381,10 +1374,10 @@ version = "4.3.0+0"
 
 [[deps.LLVM]]
 deps = ["CEnum", "LLVMExtra_jll", "Libdl", "PrecompileTools", "Preferences", "Printf", "ScopedValues", "Unicode"]
-git-tree-sha1 = "58a176a11e6e1dfbfebba502395c3481edadaa34"
+git-tree-sha1 = "41c2ce7ec5a14c89b93dc6a5853bf2a91d7a8583"
 registries = "General"
 uuid = "929cbde3-209d-540e-8aea-75f648917ca0"
-version = "10.4.2"
+version = "10.4.3"
 weakdeps = ["BFloat16s"]
 
     [deps.LLVM.extensions]
@@ -1438,15 +1431,23 @@ uuid = "10f19ff3-798f-405d-979b-55457f8fc047"
 version = "0.1.17"
 
 [[deps.LazyArrays]]
-deps = ["ArrayLayouts", "FillArrays", "LinearAlgebra", "MacroTools", "MatrixFactorizations", "SparseArrays"]
-git-tree-sha1 = "35079a6a869eecace778bcda8641f9a54ca3a828"
+deps = ["ArrayLayouts", "FillArrays", "LinearAlgebra", "MacroTools", "SparseArrays"]
+git-tree-sha1 = "1eacd657b15ab8b86aa943630f0b72047cb73115"
 registries = "General"
 uuid = "5078a376-72f3-5289-bfd5-ec5146d43c02"
-version = "1.10.0"
-weakdeps = ["StaticArrays"]
+version = "2.14.7"
 
     [deps.LazyArrays.extensions]
+    LazyArraysBandedMatricesExt = "BandedMatrices"
+    LazyArraysBlockArraysExt = "BlockArrays"
+    LazyArraysBlockBandedMatricesExt = "BlockBandedMatrices"
     LazyArraysStaticArraysExt = "StaticArrays"
+
+    [deps.LazyArrays.weakdeps]
+    BandedMatrices = "aae01518-5342-5314-be14-df237901396f"
+    BlockArrays = "8e7c35d0-a365-5155-bbbb-fb81a777f24e"
+    BlockBandedMatrices = "ffab5731-97b5-5995-9138-79e8c1846df0"
+    StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [[deps.LazyArtifacts]]
 deps = ["Artifacts", "Pkg"]
@@ -1461,7 +1462,7 @@ version = "0.3.1"
 
 [[deps.LibCUDA]]
 deps = ["CUDA"]
-git-tree-sha1 = "f7cbfa8c348dd01ac26541bcd73ee50a907523a2"
+git-tree-sha1 = "b5bd50943e43694825f64775366847acec51b6a2"
 repo-rev = "main"
 repo-url = "git@github.com:cirobr/LibCUDA.jl.git"
 uuid = "62f6ea4e-5fa0-47a8-a0b1-4c5959d5d2d3"
@@ -1479,7 +1480,7 @@ version = "8.22.0+0"
 
 [[deps.LibDataAug]]
 deps = ["Colors", "DataAugmentation", "OffsetArrays"]
-git-tree-sha1 = "0b6c81492fe627f3c068c77d94644f26ea9dd327"
+git-tree-sha1 = "4afd70cb5f2a4155b14f9a4dd675e30b89d71f0b"
 repo-rev = "main"
 repo-url = "git@github.com:cirobr/LibDataAug.jl.git"
 uuid = "8ce57647-ee5c-43be-a4d7-4c390306d9e9"
@@ -1487,11 +1488,11 @@ version = "0.0.1-DEV"
 
 [[deps.LibFluxML]]
 deps = ["Flux", "ImageCore", "JLD2", "ProgressBars", "Statistics"]
-git-tree-sha1 = "82e39d9388adf5874b14d25adf89100ef685e3ad"
+git-tree-sha1 = "734269c79ae5af94d902a15922db832b385b2117"
 repo-rev = "main"
 repo-url = "git@github.com:cirobr/LibFluxML.jl.git"
 uuid = "06a27b3f-e48e-4378-94d6-12b963ed26a7"
-version = "0.0.65"
+version = "0.0.66"
 
 [[deps.LibGit2]]
 deps = ["LibGit2_jll", "NetworkOptions", "Printf", "SHA"]
@@ -1698,13 +1699,6 @@ deps = ["Base64", "JuliaSyntaxHighlighting", "StyledStrings"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 version = "1.11.0"
 
-[[deps.MatrixFactorizations]]
-deps = ["ArrayLayouts", "LinearAlgebra", "Printf", "Random"]
-git-tree-sha1 = "6731e0574fa5ee21c02733e397beb133df90de35"
-registries = "General"
-uuid = "a3b82374-2e81-5b9e-98ce-41277c0e4c87"
-version = "2.2.0"
-
 [[deps.MetaGraphs]]
 deps = ["Graphs", "JLD2", "Random"]
 git-tree-sha1 = "3a8f462a180a9d735e340f4e8d5f364d411da3a4"
@@ -1754,10 +1748,10 @@ version = "2026.10.20"
 
 [[deps.NNlib]]
 deps = ["Adapt", "Atomix", "BFloat16s", "ChainRulesCore", "GPUArraysCore", "KernelAbstractions", "LinearAlgebra", "PrecompileTools", "Random", "ScopedValues", "Statistics"]
-git-tree-sha1 = "c2c14a43b5cea9fa622a1960c598e92ec3917ff7"
+git-tree-sha1 = "4e0d1973b9d72c797640263497a8f92cc726cfc3"
 registries = "General"
 uuid = "872c559c-99b0-510c-b3b7-b6c96a88d5cd"
-version = "0.9.56"
+version = "0.9.58"
 
     [deps.NNlib.extensions]
     NNlibAMDGPUExt = "AMDGPU"
@@ -1786,9 +1780,10 @@ version = "0.9.56"
 
 [[deps.NVML]]
 deps = ["CEnum", "CUDACore", "GPUToolbox", "Libdl"]
-path = "../../.julia/packages/CUDA/FyPpr/lib/nvml"
+git-tree-sha1 = "75532531b1af772ab58b7ad513fe086aecb82e0a"
+registries = "General"
 uuid = "611af6d1-644e-4c5d-bd58-854d7d1254b9"
-version = "6.5.0"
+version = "6.5.1"
 
 [[deps.NVPTX_LLVM_Backend_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Zlib_jll"]
@@ -1848,10 +1843,10 @@ uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
 version = "1.3.0"
 
 [[deps.OffsetArrays]]
-git-tree-sha1 = "117432e406b5c023f665fa73dc26e79ec3630151"
+git-tree-sha1 = "750d0f2b5aac238d50dfee5f7a44fae3175a3305"
 registries = "General"
 uuid = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
-version = "1.17.0"
+version = "1.18.0"
 weakdeps = ["Adapt"]
 
     [deps.OffsetArrays.extensions]
@@ -1992,7 +1987,7 @@ version = "3.0.5"
 
 [[deps.PascalVocTools]]
 deps = ["DataStructures"]
-git-tree-sha1 = "79486c087439672330c087bda8b858edcc6b6a12"
+git-tree-sha1 = "5eb676a3993f452411da7061599beb82286be62c"
 repo-rev = "main"
 repo-url = "git@github.com:cirobr/PascalVocTools.jl.git"
 uuid = "3fdd8fd9-3429-41df-93e4-b1e51c23000a"
@@ -2065,7 +2060,7 @@ version = "1.6.1"
 
 [[deps.PreprocessingImages]]
 deps = ["Colors", "Images", "Interpolations", "Statistics"]
-git-tree-sha1 = "0a823fca3ec150f85d07de00a782badcb715d614"
+git-tree-sha1 = "53fcfad8353a403422a257a02c59e2e67470217a"
 repo-rev = "main"
 repo-url = "git@github.com:cirobr/PreprocessingImages.jl.git"
 uuid = "6a52935f-723c-4a2a-832b-626b8fc4f182"
@@ -2332,10 +2327,10 @@ weakdeps = ["GPUCompiler", "SIMD", "SpecialFunctions"]
 
 [[deps.SPIRV_LLVM_Backend_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Zlib_jll"]
-git-tree-sha1 = "22ccbaf2a5e88be640a03b6ee5dc0561a7ca563c"
+git-tree-sha1 = "182fc6630e2b641cef65ddbb69f10a20dfc318ec"
 registries = "General"
 uuid = "4376b9bf-cff8-51b6-bb48-39421dff0d0c"
-version = "23.1.1+8"
+version = "23.1.4+0"
 
 [[deps.SPIRV_Tools_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
@@ -2857,9 +2852,10 @@ version = "0.2.8"
 
 [[deps.cuBLAS]]
 deps = ["Adapt", "BFloat16s", "CEnum", "CUDACore", "CUDA_Runtime_Discovery", "CUDA_Runtime_jll", "GPUArrays", "GPUToolbox", "LLVM", "LinearAlgebra"]
-path = "../../.julia/packages/CUDA/FyPpr/lib/cublas"
+git-tree-sha1 = "4a182d7bc3a87868d963eeeb12277cb8a825eaea"
+registries = "General"
 uuid = "182d3088-87b7-4494-8cad-fc6afaa545bc"
-version = "6.5.0"
+version = "6.5.1"
 weakdeps = ["EnzymeCore"]
 
     [deps.cuBLAS.extensions]
@@ -2867,34 +2863,38 @@ weakdeps = ["EnzymeCore"]
 
 [[deps.cuDNN]]
 deps = ["BFloat16s", "CEnum", "CUDACore", "CUDA_Runtime_Discovery", "CUDNN_jll"]
-git-tree-sha1 = "d23fdf5db4b1ad2314193a8f7b874318af9ba638"
+git-tree-sha1 = "0768a0ace71bf626ca2afbb45455e5c5d423f2bf"
 registries = "General"
 uuid = "02a925ec-e4fe-4b08-9a7e-0d78e3d38ccd"
-version = "6.5.0"
+version = "6.5.1"
 
 [[deps.cuFFT]]
 deps = ["AbstractFFTs", "CEnum", "CUDACore", "CUDA_Runtime_Discovery", "CUDA_Runtime_jll", "GPUToolbox", "LinearAlgebra", "Reexport"]
-path = "../../.julia/packages/CUDA/FyPpr/lib/cufft"
+git-tree-sha1 = "275873c4d33d11b2df748c3f3458ab1f1b21eddb"
+registries = "General"
 uuid = "533571aa-0936-420e-b4be-9c66f5f626ca"
-version = "6.5.0"
+version = "6.5.1"
 
 [[deps.cuRAND]]
 deps = ["CEnum", "CUDACore", "CUDA_Runtime_Discovery", "CUDA_Runtime_jll", "GPUToolbox", "Random", "Random123", "RandomNumbers"]
-path = "../../.julia/packages/CUDA/FyPpr/lib/curand"
+git-tree-sha1 = "20b8515e542b3dd01beb5dd69ca685531274ff68"
+registries = "General"
 uuid = "20fd9a0b-12d5-4c2f-a8af-7c34e9e60431"
-version = "6.5.0"
+version = "6.5.1"
 
 [[deps.cuSOLVER]]
 deps = ["CEnum", "CUDACore", "CUDA_Runtime_Discovery", "CUDA_Runtime_jll", "GPUToolbox", "LinearAlgebra", "SparseArrays", "cuBLAS", "cuSPARSE"]
-path = "../../.julia/packages/CUDA/FyPpr/lib/cusolver"
+git-tree-sha1 = "9a985ead9bf3314add409c2ff2652d1317e0851f"
+registries = "General"
 uuid = "887afef0-6a32-4de5-add4-7827692ba8fc"
-version = "6.5.0"
+version = "6.5.1"
 
 [[deps.cuSPARSE]]
 deps = ["Adapt", "CEnum", "CUDACore", "CUDA_Runtime_Discovery", "CUDA_Runtime_jll", "GPUArrays", "GPUToolbox", "KernelInterface", "LinearAlgebra", "SparseArrays"]
-path = "../../.julia/packages/CUDA/FyPpr/lib/cusparse"
+git-tree-sha1 = "025dfe67c4257440206ed720ea5445ed5336d425"
+registries = "General"
 uuid = "b26da814-b3bc-49ef-b0ee-c816305aa060"
-version = "6.5.0"
+version = "6.5.1"
 
     [deps.cuSPARSE.extensions]
     SparseMatricesCSRExt = "SparseMatricesCSR"
@@ -2968,10 +2968,10 @@ version = "17.8.3+0"
 
 [[deps.pocl_standalone_jll]]
 deps = ["Artifacts", "Hwloc_jll", "JLLWrappers", "Libdl", "SLEEF_jll", "Zstd_jll"]
-git-tree-sha1 = "46eba5d14220db916c7152532a198e22d0268d90"
+git-tree-sha1 = "470390374a04abdb703c7ee81815fa72db402fa0"
 registries = "General"
 uuid = "54f56a70-6062-5590-a942-1226658f6c83"
-version = "7.2.3+2"
+version = "7.2.3+3"
 
 [[deps.tree_sitter_gcn_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]

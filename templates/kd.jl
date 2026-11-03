@@ -1,6 +1,6 @@
 """
 Author: cirobr@GitHub
-Date: 01-Nov-2026
+Date: 03-Nov-2026
 
 Template for kd vision models.
 """
@@ -388,33 +388,15 @@ function mse(model,X,y)
       return Flux.mse(yhat, y)
 end
 
-function kldiv(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return Flux.kldivergence(yhat, y)
-end
-
 function soft_cos_loss(model,X,y)
       yhat, y = evaluate_model(model, X, y)
       return LibFluxML.softloss(yhat, y, LibFluxML.cosine_loss; T=1, dims=3)
-end
-
-function soft_mae(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return LibFluxML.softloss(yhat, y, Flux.mae; T=1, dims=3)
-end
-
-function soft_mse(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return LibFluxML.softloss(yhat, y, Flux.mse; T=1, dims=3)
 end
 
 function soft_kldiv(model,X,y)
       yhat, y = evaluate_model(model, X, y)
       return LibFluxML.softloss(yhat, y, Flux.kldivergence; T=1, dims=3)
 end
-
-kldiv_mse_ratio(model,X,y)      = kldiv(model,X,y) / mse(model,X,y)
-soft_kldiv_mse_ratio(model,X,y) = soft_kldiv(model,X,y) / soft_mse(model,X,y)
 
 const ssim_conv = LibFluxML.make_ssim_conv(C_out; kernel_size=11, σ=1.5f0) |> dev
 function ssim(model,X,y)
@@ -425,13 +407,8 @@ end
 metrics = [
       mae,
       mse,
-      # kldiv,
       soft_cos_loss,
-      soft_mae,
-      soft_mse,
       soft_kldiv,
-      # kldiv_mse_ratio,
-      soft_kldiv_mse_ratio,
       ssim,
 ]
 @info "metrics OK"
