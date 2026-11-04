@@ -1,6 +1,6 @@
 """
 Author: cirobr@GitHub
-Date: 01-Nov-2026
+Date: 29-Oct-2026
 
 Template for kd vision models.
 """
@@ -53,7 +53,6 @@ using ProgressBars
 import Statistics: mean, minimum, maximum, norm, std, median
 
 # private libs
-using LibCUDA
 using LibFluxML
 import LibFluxML: acc_score, f1_score, iou_score, per_class_iou   # metrics
 using PreprocessingImages; p=PreprocessingImages
@@ -61,7 +60,10 @@ import PreprocessingImages: get_normalization_params
 using LibDataAug
 import LibDataAug: apply_data_augmentation
 using PascalVocTools; const pv=PascalVocTools
-include("../library/channel_augmentation_functions.jl")
+# include("../library/channel_augmentation_functions.jl")
+
+using LibCUDA
+LibCUDA.cleangpu()
 
 
 # dataset constants
@@ -79,11 +81,11 @@ const imagenet_stds  = Float32[0.229, 0.224, 0.225]
 
 
 # teacher model
-@info "loading teacher model..."
+@info "load teacher model..."
 # size(fs[1]) = (64, 64, 64, 1)
 # size(fs[2]) = (64, 64, 256, 1)
 # espnet encoder -> size(fs[3]) = (32, 32, 512, 1)
-# unet encoder   -> size(fs[4]) = (16, 16, 1024, 1)
+# unet encoder -> size(fs[4]) = (16, 16, 1024, 1)
 # size(fs[5]) = (8, 8, 2048, 1)
 teachermodel = Metalhead.backbone(ResNet(50; pretrain=true)) |> dev
 testmode!(teachermodel)
@@ -317,6 +319,9 @@ aligner = Chain(
 )
 encoder = TinyMachines.ESPNet(C_in, C_out; activation="prelu").encoder
 modelcpu = Chain(encoder, aligner)
+# fpfn = "models/unet5_encoder/model.jld2"
+# LibFluxML.loadModelState!(fpfn, modelcpu)
+# @info "model loaded from $fpfn"
 model = modelcpu |> dev
 @info "model OK"
 
@@ -342,11 +347,9 @@ The mse loss is already scaled by the temperature factor in the softmax function
 """
 T = 1   ### Distillation temperature: T=1 for encoder, T=3 or 4 for logits.
 
-# kldloss(yhat, y) = Flux.kldivergence(yhat, y; eps=1e-6) # NaN in backward pass
-
 function trainLossFunction(model,X,y)
       yhat, y = evaluate_model(model, X, y)
-      return (T*T) * LibFluxML.softloss(yhat, y, LibFluxML.cosine_loss; T=T, dims=3)
+      return (T*T) * LibFluxML.softloss(yhat, y, LibFluxML.cosine_loss; T=T, dims=3) # NaN-safe
 end
 
 function validLossFunction(model,X,y)
@@ -358,31 +361,31 @@ end
 
 # optimizer & scheduler
 lr  = 1e-4
-lr2 = 2e-4
-lr3 = 5e-5
+# lr2 = 2e-4
+# lr3 = 5e-5
 β  = (0.9, 0.999)
 λ  = 5e-5           # or 1e-4
-cn = 1.0    # clip norm
-cg = 1.0    # clip grad
+# cn = 1.0    # clip norm
+# cg = 1.0    # clip grad
 
 opt = OptimiserChain(
       Flux.AccumGrad(accum_steps),
       # Flux.ClipNorm(cn),
       # Flux.ClipGrad(cg),
       Flux.AdamW(lr, β, λ),
-      # Flux.Adam(lr, β),
+      # Flux.Adam(η, β),
 )
 # opt_mp = Optimisers.MixedPrecision(Float16, opt)
 optimizerState = Flux.setup(opt, model)
 # Flux.freeze!(optimizerState.encoder)
 
-T1 = 8
-T2 = 100
-T3 = 500 - (T1+T2)
-raising_part  = Triangle(l0=lr, l1=lr2, period=2*T1) # 1/2 period triangle
-cosine_part   = CosAnneal(l0=lr2, l1=lr3, period=T2, restart=false)
-constant_part = lr3
-scheduler = Sequence(raising_part => T1, cosine_part => T2, constant_part => T3)
+# T1 = 8
+# T2 = 100
+# T3 = 500 - (T1+T2)
+# raising_part  = Triangle(l0=lr, l1=lr2, period=2*T1) # 1/2 period triangle
+# cosine_part   = CosAnneal(l0=lr2, l1=lr3, period=T2, restart=false)
+# constant_part = lr3
+# scheduler = Sequence(raising_part => T1, cosine_part => T2, constant_part => T3)
 @info "optimizer OK"
 
 
@@ -397,33 +400,15 @@ function mse(model,X,y)
       return Flux.mse(yhat, y)
 end
 
-function kldiv(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return Flux.kldivergence(yhat, y)
-end
-
 function soft_cos_loss(model,X,y)
       yhat, y = evaluate_model(model, X, y)
       return LibFluxML.softloss(yhat, y, LibFluxML.cosine_loss; T=1, dims=3)
-end
-
-function soft_mae(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return LibFluxML.softloss(yhat, y, Flux.mae; T=1, dims=3)
-end
-
-function soft_mse(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return LibFluxML.softloss(yhat, y, Flux.mse; T=1, dims=3)
 end
 
 function soft_kldiv(model,X,y)
       yhat, y = evaluate_model(model, X, y)
       return LibFluxML.softloss(yhat, y, Flux.kldivergence; T=1, dims=3)
 end
-
-kldiv_mse_ratio(model,X,y)      = kldiv(model,X,y) / mse(model,X,y)
-soft_kldiv_mse_ratio(model,X,y) = soft_kldiv(model,X,y) / soft_mse(model,X,y)
 
 const ssim_conv = LibFluxML.make_ssim_conv(C_out; kernel_size=11, σ=1.5f0) |> dev
 function ssim(model,X,y)
@@ -434,13 +419,8 @@ end
 metrics = [
       mae,
       mse,
-      # kldiv,
       soft_cos_loss,
-      soft_mae,
-      soft_mse,
       soft_kldiv,
-      # kldiv_mse_ratio,
-      soft_kldiv_mse_ratio,
       ssim,
 ]
 @info "metrics OK"
@@ -481,11 +461,11 @@ LibCUDA.cleangpu()
 reset!(logger)
 
 validlosses = []
-# for epoch in 1:epochs
-for (eta, epoch) in zip(scheduler, 1:epochs)
+for epoch in 1:epochs
+# for (eta, epoch) in zip(scheduler, 1:epochs)
       @printf "*** Epoch %d/%d ***\n" epoch epochs
-      Flux.adjust!(optimizerState, eta)
-      @printf "Learning rate: %.3e \n\n" eta
+      # Flux.adjust!(optimizerState, eta)
+      # @printf "Learning rate: %.3e \n\n" eta
 
       # train epoch
       trainloss = 
