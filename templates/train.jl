@@ -1,6 +1,6 @@
 """
 Author: cirobr@GitHub
-Date: 01-Nov-2026
+Date: 04-Nov-2026
 
 Template for training vision models.
 """
@@ -56,11 +56,10 @@ using LibCUDA
 using LibFluxML
 import LibFluxML: acc_score, f1_score, iou_score, per_class_iou   # metrics
 using PreprocessingImages; p=PreprocessingImages
-import PreprocessingImages: get_normalization_params
 using LibDataAug
 import LibDataAug: apply_data_augmentation
 using PascalVocTools; const pv=PascalVocTools
-include("../library/channel_augmentation_functions.jl")
+# include("../library/channel_augmentation_functions.jl")
 
 
 # dataset constants
@@ -207,7 +206,7 @@ FLoops.@floop for i in 1:Ntrain
 end
 
 # normalization statistics
-means, stds = get_normalization_params(Xs)
+means, stds = p.get_normalization_params(Xs)
 means = means |> x->trunc.(x,digits=3) .|> Float32
 stds  = stds  |> x->trunc.(x,digits=3) .|> Float32
 # means = imagenet_means

@@ -1,6 +1,6 @@
 """
 Author: cirobr@GitHub
-Date: 03-Nov-2026
+Date: 04-Nov-2026
 
 Template for kd vision models.
 """
@@ -57,11 +57,10 @@ using LibCUDA
 using LibFluxML
 import LibFluxML: acc_score, f1_score, iou_score, per_class_iou   # metrics
 using PreprocessingImages; p=PreprocessingImages
-import PreprocessingImages: get_normalization_params
 using LibDataAug
 import LibDataAug: apply_data_augmentation
 using PascalVocTools; const pv=PascalVocTools
-include("../library/channel_augmentation_functions.jl")
+# include("../library/channel_augmentation_functions.jl")
 
 
 # dataset constants
@@ -80,11 +79,11 @@ const imagenet_stds  = Float32[0.229, 0.224, 0.225]
 
 # teacher model
 @info "loading teacher model..."
-# size(fs[1]) = (64, 64, 64, 1)
-# size(fs[2]) = (64, 64, 256, 1)
-# size(fs[3]) = (32, 32, 512, 1)
-# unet encoder -> size(fs[4]) = (16, 16, 1024, 1)
-# size(fs[5]) = (8, 8, 2048, 1)
+# size(activations()[1]) = (64, 64, 64, 1)
+# size(activations()[2]) = (64, 64, 256, 1)
+# espnet encoder -> size(activations()[3]) = (32, 32, 512, 1)
+# unet encoder   -> size(activations()[4]) = (16, 16, 1024, 1)
+# size(activations()[5]) = (8, 8, 2048, 1)
 teachermodel = Metalhead.backbone(ResNet(50; pretrain=true)) |> dev
 testmode!(teachermodel)
 @info "teacher model OK"
@@ -208,7 +207,7 @@ FLoops.@floop for i in 1:Ntrain
 end
 
 # normalization statistics
-means, stds = get_normalization_params(Xs)
+means, stds = p.get_normalization_params(Xs)
 means = means |> x->trunc.(x,digits=3) .|> Float32
 stds  = stds  |> x->trunc.(x,digits=3) .|> Float32
 # means = imagenet_means
@@ -306,6 +305,15 @@ function evaluate_model(model, X, y)
       return (yhat, y)
 end
 
+# Conv1x1 = 131K parameters
+# bottleneck = 54K  parameters
+# aligner = Chain(
+#       Conv((1,1), 256=>64, init=Flux.kaiming_normal()),
+#       BatchNorm(64,leakyrelu),
+#       Conv((1,1), 64=>64,  init=Flux.kaiming_normal()),
+#       BatchNorm(64,leakyrelu),
+#       Conv((1,1), 64=>512, init=Flux.kaiming_normal()),
+# )
 modelcpu = TinyMachines.UNet(C_in, C_out; activation=leakyrelu).encoder
 # fpfn = "../2.baseline/models/dfl_2e-3_part2/bestmodel.jld2"
 # LibFluxML.loadModelState!(fpfn, modelcpu)
