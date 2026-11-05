@@ -1,6 +1,6 @@
 """
 Author: cirobr@GitHub
-Date: 04-Nov-2026
+Date: 05-Nov-2026
 
 Template for training vision models.
 """
@@ -461,7 +461,7 @@ reset!(logger)
 validlosses = []
 # for epoch in 1:epochs
 for (eta, epoch) in zip(scheduler, 1:epochs)
-      # LibCUDA.garbage_collection()
+      LibCUDA.garbage_collection()
       # LibCUDA.cleangpu()
 
       @printf "*** Epoch %d/%d ***\n" epoch epochs
