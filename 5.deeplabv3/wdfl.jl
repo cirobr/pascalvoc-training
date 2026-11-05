@@ -370,7 +370,7 @@ opt = OptimiserChain(
 )
 # opt_mp = Optimisers.MixedPrecision(Float16, opt)
 optimizerState = Flux.setup(opt, model)
-# Flux.freeze!(optimizerState.encoder)
+Flux.freeze!(optimizerState.backbone)
 
 T1 = 8
 T2 = 100
@@ -465,6 +465,7 @@ validlosses = []
 for (eta, epoch) in zip(scheduler, 1:epochs)
       LibCUDA.garbage_collection()
       # LibCUDA.cleangpu()
+      if epoch == T1   Flux.thaw!(optimizerState)   end
 
       @printf "*** Epoch %d/%d ***\n" epoch epochs
       Flux.adjust!(optimizerState, eta)
