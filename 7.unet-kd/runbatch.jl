@@ -7,7 +7,7 @@ Template for executing multiple scripts in series.
 
 ### arguments
 envpath       = "../"
-cudadevice    = 0
+cudadevice    = 1
 epochs        = 500
 train_batch   = 8
 accum_steps   = 2
