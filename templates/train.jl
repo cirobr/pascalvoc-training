@@ -1,6 +1,6 @@
 """
 Author: cirobr@GitHub
-Date: 04-Nov-2026
+Date: 05-Nov-2026
 
 Template for training vision models.
 """
@@ -52,13 +52,13 @@ using ProgressBars
 import Statistics: mean, minimum, maximum, norm, std, median
 
 # private libs
-using LibCUDA
 using LibFluxML
 import LibFluxML: acc_score, f1_score, iou_score, per_class_iou   # metrics
 using PreprocessingImages; p=PreprocessingImages
 using LibDataAug
 import LibDataAug: apply_data_augmentation
 using PascalVocTools; const pv=PascalVocTools
+using LibCUDA
 # include("../library/channel_augmentation_functions.jl")
 
 
@@ -103,7 +103,7 @@ function normalize_tensor(x::AbstractArray; means::AbstractVector, stds::Abstrac
 end
 
 function convert_image_to_tensor(img)
-      error("function not implemented")
+      return p.image2Float32(img) # HWC
 end
 
 function convert_mask_to_tensor(mask)
@@ -201,7 +201,7 @@ FLoops.@floop for i in 1:Ntrain
                         geometric_tfm = geometric_validpipe,
       )
 
-      Xs[:,:,:,i] = p.image2Float32(img)
+      Xs[:,:,:,i] = convert_image_to_tensor(img)
       ys[:,:,:,i] = convert_mask_to_tensor(mask)
 end
 
@@ -253,10 +253,7 @@ function Flux.getobs(d::PascalVocDataset, i::Int)
                         geometric_tfm = d.geometric_tfm,
       )
 
-      img_float = p.image2Float32(img)
-      X = normalize_tensor(img_float; means=means, stds=stds)
-      # X = convert_image_to_tensor(img)
-
+      X = convert_image_to_tensor(img) |> x->normalize_tensor(x; means=means, stds=stds)
       y = convert_mask_to_tensor(mask)
       
       return (X, y)
@@ -461,7 +458,7 @@ reset!(logger)
 validlosses = []
 # for epoch in 1:epochs
 for (eta, epoch) in zip(scheduler, 1:epochs)
-      # LibCUDA.garbage_collection()
+      LibCUDA.garbage_collection()
       # LibCUDA.cleangpu()
 
       @printf "*** Epoch %d/%d ***\n" epoch epochs
