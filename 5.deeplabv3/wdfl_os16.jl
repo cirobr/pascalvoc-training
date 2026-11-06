@@ -326,7 +326,7 @@ loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.tra
 # loss functions
 function trainLossFunction(model,X,y)
       yhat, y = evaluate_model(model, X, y)
-      return LibFluxML.gdfl(yhat, y;
+      return LibFluxML.dfl(yhat, y;
                   logits=true,
                   include_background=false,
                   exclude_voids=true,

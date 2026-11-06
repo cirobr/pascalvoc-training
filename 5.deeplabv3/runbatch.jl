@@ -17,8 +17,8 @@ debugflag     = false
 
 ### projects
 scripts = [
-    "wdfl.jl",
-    "wgdfl.jl",
+    # "wdfl.jl",
+    "wdfl_os16.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
