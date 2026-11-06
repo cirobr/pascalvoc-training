@@ -12,7 +12,7 @@ epochs        = 500
 train_batch   = 4
 accum_steps   = 2
 valid_batch   = train_batch # * accum_steps
-debugflag     = true
+debugflag     = false
 
 
 ### projects
