@@ -24,7 +24,6 @@ ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 TensorBoardLogger = "899adc3e-224a-11e9-021f-63837185c80f"
 TestImages = "5e47fb64-e119-507b-a336-dd2b206d9990"
 TinyMachines = "5d0fdf5f-995e-4f1b-a9e8-363392c4fe32"
-Wavelets = "29a6e085-ba6d-5f35-a997-948ac2efa89a"
 cuDNN = "02a925ec-e4fe-4b08-9a7e-0d78e3d38ccd"
 
 [sources]
