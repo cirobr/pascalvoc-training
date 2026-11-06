@@ -353,9 +353,9 @@ end
 
 
 # optimizer & scheduler
-lr  = 1e-4
-lr2 = 2e-4
-lr3 = 5e-5
+lr  = 5e-5
+lr2 = 1e-4
+lr3 = 1e-5
 β   = (0.9, 0.999)
 λ   = 5e-5   # or 1e-4
 # cn = 1.0    # clip norm
