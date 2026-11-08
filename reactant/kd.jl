@@ -45,8 +45,6 @@ using Printf
 import Statistics: mean, minimum, maximum, norm, std, median
 
 # private libs
-include("learn.jl")
-
 using LibFluxML
 import LibFluxML: acc_score, f1_score, iou_score, per_class_iou   # metrics
 using PreprocessingImages; p=PreprocessingImages
@@ -54,7 +52,6 @@ import PreprocessingImages: get_normalization_params
 using LibDataAug
 import LibDataAug: apply_data_augmentation
 using PascalVocTools; const pv=PascalVocTools
-include("../library/channel_augmentation_functions.jl")
 
 using LibCUDA
 LibCUDA.cleangpu()
