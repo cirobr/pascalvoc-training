@@ -301,7 +301,7 @@ function evaluate_model(model, X, y)
       return (yhat, y)
 end
 
-modelcpu = DeepLab.DeepLabV3(C_in, C_out; backbone=bb16)  # bb32 is pre-trained on imagenet
+modelcpu = DeepLab.DeepLabV3(C_in, C_out; backbone=bb32)  # bb32 is pre-trained on imagenet
 # fpfn = "../2.baseline/models/dfl_2e-3_part2/bestmodel.jld2"
 # LibFluxML.loadModelState!(fpfn, modelcpu)
 # @info "model loaded from $fpfn"
@@ -353,11 +353,13 @@ end
 
 
 # optimizer & scheduler
-lr  = 1e-4          # warm-up start
-lr2 = 1e-3          # peak  (or 3e-3 if stable)
-lr3 = 1e-5          # final
-λ   = 1e-4          # weight decay (higher than fine-tuning)
+lr  = 5e-5
+lr2 = 1e-4
+lr3 = 1e-5
 β   = (0.9, 0.999)
+λ   = 5e-5   # or 1e-4
+# cn = 1.0    # clip norm
+# cg = 1.0    # clip grad
 
 opt = OptimiserChain(
       Flux.AccumGrad(accum_steps),
@@ -368,12 +370,12 @@ opt = OptimiserChain(
 )
 # opt_mp = Optimisers.MixedPrecision(Float16, opt)
 optimizerState = Flux.setup(opt, model)
-# Flux.freeze!(optimizerState.backbone)
+Flux.freeze!(optimizerState.backbone)
 
-T1 = 10
-T2 = 140
-T3 = 500 - (T1 + T2)
-raising_part  = Triangle(l0=lr, l1=lr2, period=2*T1)
+T1 = 8
+T2 = 100
+T3 = 500 - (T1+T2)
+raising_part  = Triangle(l0=lr, l1=lr2, period=2*T1) # 1/2 period triangle
 cosine_part   = CosAnneal(l0=lr2, l1=lr3, period=T2, restart=false)
 constant_part = lr3
 scheduler = Sequence(raising_part => T1, cosine_part => T2, constant_part => T3)
@@ -463,7 +465,6 @@ validlosses = []
 for (eta, epoch) in zip(scheduler, 1:epochs)
       LibCUDA.garbage_collection()
       # LibCUDA.cleangpu()
-      # if epoch == T1   Flux.thaw!(optimizerState)   end
 
       @printf "*** Epoch %d/%d ***\n" epoch epochs
       Flux.adjust!(optimizerState, eta)

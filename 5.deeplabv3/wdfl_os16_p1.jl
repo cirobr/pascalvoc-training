@@ -301,7 +301,9 @@ function evaluate_model(model, X, y)
       return (yhat, y)
 end
 
-modelcpu = DeepLab.DeepLabV3(C_in, C_out; backbone=bb32)  # bb32 is pre-trained on imagenet
+model_state = Flux.state(bb32[1:end-1])
+Flux.loadmodel!(bb16[1:end-1], model_state)
+modelcpu = DeepLab.DeepLabV3(C_in, C_out; backbone=bb16)  # bb32 is pre-trained on imagenet
 # fpfn = "../2.baseline/models/dfl_2e-3_part2/bestmodel.jld2"
 # LibFluxML.loadModelState!(fpfn, modelcpu)
 # @info "model loaded from $fpfn"
@@ -370,7 +372,7 @@ opt = OptimiserChain(
 )
 # opt_mp = Optimisers.MixedPrecision(Float16, opt)
 optimizerState = Flux.setup(opt, model)
-Flux.freeze!(optimizerState.backbone)
+Flux.freeze!(optimizerState.backbone.layers[1:end-1])
 
 T1 = 8
 T2 = 100
@@ -465,7 +467,6 @@ validlosses = []
 for (eta, epoch) in zip(scheduler, 1:epochs)
       LibCUDA.garbage_collection()
       # LibCUDA.cleangpu()
-      if epoch == T1   Flux.thaw!(optimizerState)   end
 
       @printf "*** Epoch %d/%d ***\n" epoch epochs
       Flux.adjust!(optimizerState, eta)
