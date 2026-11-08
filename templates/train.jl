@@ -1,6 +1,6 @@
 """
 Author: cirobr@GitHub
-Date: 05-Nov-2026
+Date: 08-Nov-2026
 
 Template for training vision models.
 """
@@ -59,7 +59,6 @@ using LibDataAug
 import LibDataAug: apply_data_augmentation
 using PascalVocTools; const pv=PascalVocTools
 using LibCUDA
-# include("../library/channel_augmentation_functions.jl")
 
 
 # dataset constants

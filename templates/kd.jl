@@ -1,6 +1,6 @@
 """
 Author: cirobr@GitHub
-Date: 05-Nov-2026
+Date: 08-Nov-2026
 
 Template for kd vision models.
 """
@@ -60,7 +60,6 @@ using LibDataAug
 import LibDataAug: apply_data_augmentation
 using PascalVocTools; const pv=PascalVocTools
 using LibCUDA
-# include("../library/channel_augmentation_functions.jl")
 
 
 # dataset constants
@@ -536,6 +535,7 @@ close(logger)
 
 # rename the best model state
 mv(expanduser(modelsfolder) * "model.jld2", expanduser(modelsfolder) * "bestmodel.jld2", force=true)
+LibFluxML.saveModelState(expanduser(modelsfolder) * "bestencoder.jld2", model[1])
 @info "training OK"
 
 
