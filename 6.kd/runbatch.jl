@@ -22,8 +22,7 @@ scripts = [
     # "unet5_encoder_p3.jl",
     # "espnet_encoder.jl",
     # "espnet_encoder_p2.jl", # TODO: p3
-    "bb16_p1.jl",
-    "bb16_p2.jl"
+    # "bb16_p1.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
