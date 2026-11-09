@@ -19,7 +19,7 @@ debugflag     = false
 scripts = [
     # "wdfl_os32_p1.jl",
     # "wdfl_os16_p1.jl",
-    "wdfl_os8_p1.jl"
+    "wdfl_os16_auxhead_p1.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 

@@ -54,13 +54,11 @@ import Statistics: mean, minimum, maximum, norm, std, median
 # private libs
 using DeepLab
 using LibFluxML
-import LibFluxML: acc_score, f1_score, iou_score, per_class_iou   # metrics
 using PreprocessingImages; p=PreprocessingImages
 using LibDataAug
 import LibDataAug: apply_data_augmentation
 using PascalVocTools; const pv=PascalVocTools
 using LibCUDA
-# include("../library/channel_augmentation_functions.jl")
 
 
 # dataset constants
@@ -296,14 +294,14 @@ valid_loader = Flux.DataLoader(valid_dataset,
 
 
 ### model
-function evaluate_model(model, X, y)
-      yhat = model(X)
-      return (yhat, y)
-end
-
 model_state = Flux.state(bb32[1:end-1])
-Flux.loadmodel!(bb8[1:end-1], model_state)
-modelcpu = DeepLab.DeepLabV3(C_in, C_out; backbone=bb8)  # bb32 is pre-trained on imagenet
+Flux.loadmodel!(bb16[1:end-1], model_state)
+modelcpu = DeepLab.DeepLabV3(C_in, C_out;
+                              backbone=bb16,
+                              use_aux=true,
+                              aux_index=4,
+                              aspp_rates=(6,12,18),
+)
 # fpfn = "../2.baseline/models/dfl_2e-3_part2/bestmodel.jld2"
 # LibFluxML.loadModelState!(fpfn, modelcpu)
 # @info "model loaded from $fpfn"
@@ -313,8 +311,13 @@ model = modelcpu |> dev
 
 # model checkpoint
 function lossfn(model, X, y)   # loss function for testing purposes only
-      yhat, y = evaluate_model(model, X, y)
-      return Flux.mse(yhat, y)
+      if isnothing(model.aux_classifier)
+            yhat = model(X)
+            return Flux.mse(yhat, y)
+      else
+            yhat, aux = model(X, Val(:aux))
+            return Flux.mse(yhat, y) + 0.4f0 * Flux.mse(aux, y)
+      end
 end
 
 (X,y) = first(train_loader)
@@ -326,31 +329,34 @@ loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.tra
 
 
 # loss functions
+trainfn(yhat, y) = LibFluxML.dfl(yhat, y;
+                        logits=true,
+                        include_background=false,
+                        exclude_voids=true,
+                        gamma=2.0,
+                        focal_weight=1.0,
+                        dice_weight =1.0,
+                        weights=train_weights,
+                        reduction=:mean,
+                        device=dev,
+)
 function trainLossFunction(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return LibFluxML.dfl(yhat, y;
-                  logits=true,
-                  include_background=false,
-                  exclude_voids=true,
-                  gamma=2.0,
-                  focal_weight=1.0,
-                  dice_weight =1.0,
-                  weights=train_weights,
-                  reduction=:mean,
-                  device=dev,
-      )
+      if isnothing(model.aux_classifier)
+            yhat = model(X)
+            return trainfn(yhat, y)
+      else
+            yhat, aux = model(X, Val(:aux))
+            return trainfn(yhat, y) + 0.4f0 * trainfn(aux, y)
+      end
 end
 
-function validLossFunction(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return LibFluxML.iou_loss(yhat, y;
-                  logits=true,
-                  include_background=false,
-                  exclude_voids=true,
-                  reduction=:mean,
-                  device=dev,
-      )
-end
+validLossFunction(yhat, y) = LibFluxML.iou_loss(yhat, y;
+                                    logits=true,
+                                    include_background=false,
+                                    exclude_voids=true,
+                                    reduction=:mean,
+                                    device=dev,
+)
 @info "loss functions OK"
 
 
@@ -372,7 +378,7 @@ opt = OptimiserChain(
 )
 # opt_mp = Optimisers.MixedPrecision(Float16, opt)
 optimizerState = Flux.setup(opt, model)
-Flux.freeze!(optimizerState.backbone.layers[1:end-1])
+Flux.freeze!(optimizerState.backbone_head)
 
 T1 = 8
 T2 = 100
@@ -385,33 +391,14 @@ scheduler = Sequence(raising_part => T1, cosine_part => T2, constant_part => T3)
 
 
 # one-number metrics
-function acc_score(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return acc_score(yhat, y; logits=true, exclude_voids=true, device=dev)
-end
-
-function f1_score(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return f1_score(yhat, y; logits=true, exclude_voids=true, device=dev)
-end
-
-function iou_score(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return iou_score(yhat, y; logits=true, exclude_voids=true, device=dev)
-end
-
-function mean_iou(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return per_class_iou(yhat, y; logits=true, exclude_voids=true, reduction=:mean, device=dev)
-end
-
-function validCE(model, X, y)
-    yhat, y = evaluate_model(model, X, y)
-    return LibFluxML.ce_loss(yhat, y;
-            logits=true, include_background=false, exclude_voids=true,
-            weights=train_weights, reduction=:mean, device=dev)
-end
-
+acc_score(yhat,y) = LibFluxML.acc_score(yhat, y; logits=true, exclude_voids=true, device=dev)
+f1_score(yhat,y)  = LibFluxML.f1_score(yhat, y; logits=true, exclude_voids=true, device=dev)
+iou_score(yhat,y) = LibFluxML.iou_score(yhat, y; logits=true, exclude_voids=true, device=dev)
+mean_iou(yhat,y)  = LibFluxML.per_class_iou(yhat, y; logits=true, exclude_voids=true, reduction=:mean,
+                              device=dev)
+validCE(yhat, y)  = LibFluxML.ce_loss(yhat, y; logits=true, include_background=false, exclude_voids=true,
+                              weights=train_weights, reduction=:mean,
+                              device=dev)
 metrics = [
       acc_score,
       f1_score,
@@ -421,10 +408,7 @@ metrics = [
 ]
 
 # per-class metrics
-function per_class_iou_score(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return per_class_iou(yhat, y; logits=true, exclude_voids=true, device=dev)
-end
+per_class_iou_score(yhat,y) = LibFluxML.per_class_iou(yhat, y; logits=true, exclude_voids=true, device=dev)
 @info "metrics OK"
 
 

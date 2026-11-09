@@ -27,9 +27,9 @@ TinyMachines = "5d0fdf5f-995e-4f1b-a9e8-363392c4fe32"
 cuDNN = "02a925ec-e4fe-4b08-9a7e-0d78e3d38ccd"
 
 [sources]
-DeepLab = {rev = "main", url = "git@github.com:cirobr/DeepLab.jl.git"}
+DeepLab = {rev = "auxhead", url = "git@github.com:cirobr/DeepLab.jl.git"}
 LibCUDA = {rev = "main", url = "git@github.com:cirobr/LibCUDA.jl.git"}
 LibDataAug = {rev = "main", url = "git@github.com:cirobr/LibDataAug.jl.git"}
-LibFluxML = {rev = "main", url = "git@github.com:cirobr/LibFluxML.jl.git"}
+LibFluxML = {rev = "v0.0.67", url = "git@github.com:cirobr/LibFluxML.jl.git"}
 PascalVocTools = {rev = "main", url = "git@github.com:cirobr/PascalVocTools.jl.git"}
 PreprocessingImages = {rev = "main", url = "git@github.com:cirobr/PreprocessingImages.jl.git"}
