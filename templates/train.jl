@@ -1,6 +1,6 @@
 """
 Author: cirobr@GitHub
-Date: 08-Nov-2026
+Date: 10-Nov-2026
 
 Template for training vision models.
 """
@@ -12,8 +12,8 @@ cd(@__DIR__)
 # envpath     = "../"
 # cudadevice  = 0
 # epochs      = 500
-# train_batch = 8
-# accum_steps = 2
+# train_batch = 4
+# accum_steps = 4
 # valid_batch = train_batch * accum_steps
 # debugflag   = true
 
@@ -34,7 +34,7 @@ else
       @warn "gpu disabled: using cpu."
 end
 
-using TinyMachines
+# using TinyMachines
 using Images
 using DataAugmentation
 using OffsetArrays
@@ -52,8 +52,8 @@ using ProgressBars
 import Statistics: mean, minimum, maximum, norm, std, median
 
 # private libs
+using DeepLab
 using LibFluxML
-import LibFluxML: acc_score, f1_score, iou_score, per_class_iou   # metrics
 using PreprocessingImages; p=PreprocessingImages
 using LibDataAug
 import LibDataAug: apply_data_augmentation
@@ -63,7 +63,7 @@ using LibCUDA
 
 # dataset constants
 const imagesize = (500,500)   # original size
-const framesize = (256,256)   # resized size
+const framesize = (256,256)   # cropped size
 const classnrs  = pv.class_numbers   # 0:20
 const C_out = length(classnrs)
 C_in = 3
@@ -188,28 +188,29 @@ Nvalid = size(dfvalid, 1)
 
 # calculate normalization parameters and class frequencies
 @info "calculating parameters ..."
-Xs = Array{Float32,4}(undef, (framesize...,C_in,Ntrain))
+# Xs = Array{Float32,4}(undef, (framesize...,C_in,Ntrain))
+img = get_image(expanduser(dftrain.X[1]); colorflag=colorflag)   # dummy image
 ys = Array{Bool,4}(undef, (framesize...,C_out,Ntrain))
 
 FLoops.@floop for i in 1:Ntrain
-      img  = get_image(expanduser(dftrain.X[i]); colorflag=colorflag)
+      # img  = get_image(expanduser(dftrain.X[i]); colorflag=colorflag)
       mask = get_mask(expanduser(dftrain.y[i]))
       
-      img, mask = apply_data_augmentation(img, mask;
+      _, mask = apply_data_augmentation(img, mask;
                         intensity_tfm = intensity_validpipe,
                         geometric_tfm = geometric_validpipe,
       )
 
-      Xs[:,:,:,i] = convert_image_to_tensor(img)
+      # Xs[:,:,:,i] = convert_image_to_tensor(img)
       ys[:,:,:,i] = convert_mask_to_tensor(mask)
 end
 
 # normalization statistics
-means, stds = p.get_normalization_params(Xs)
-means = means |> x->trunc.(x,digits=3) .|> Float32
-stds  = stds  |> x->trunc.(x,digits=3) .|> Float32
-# means = imagenet_means
-# stds  = imagenet_stds
+# means, stds = p.get_normalization_params(Xs)
+# means = means |> x->trunc.(x,digits=3) .|> Float32
+# stds  = stds  |> x->trunc.(x,digits=3) .|> Float32
+means = imagenet_means
+stds  = imagenet_stds
 
 @show means
 @show stds
@@ -293,12 +294,14 @@ valid_loader = Flux.DataLoader(valid_dataset,
 
 
 ### model
-function evaluate_model(model, X, y)
-      yhat = model(X)
-      return (yhat, y)
-end
-
-modelcpu = TinyMachines.UNet(C_in, C_out; activation=leakyrelu)
+# model_state = Flux.state(bb32[1:end-1])
+# Flux.loadmodel!(bb16[1:end-1], model_state)
+modelcpu = DeepLab.DeepLabV3(C_in, C_out;
+                              backbone=bb16,
+                              use_aux=true,
+                              aux_index=4,
+                              aspp_rates=(6,12,18),
+)
 # fpfn = "../2.baseline/models/dfl_2e-3_part2/bestmodel.jld2"
 # LibFluxML.loadModelState!(fpfn, modelcpu)
 # @info "model loaded from $fpfn"
@@ -307,49 +310,60 @@ model = modelcpu |> dev
 
 
 # model checkpoint
-function lossfn(model, X, y)   # loss function for testing purposes only
-      yhat, y = evaluate_model(model, X, y)
-      return Flux.mse(yhat, y)
+function testfn(model, X, y)   # loss function for testing purposes only
+      if isnothing(model.aux_classifier)
+            yhat = model(X)
+            return Flux.mse(yhat, y)
+      else
+            yhat, aux = model(X, Val(:aux))
+            return Flux.mse(yhat, y) + 0.4f0 * Flux.mse(aux, y)
+      end
 end
 
 (X,y) = first(train_loader)
 X = X |> dev
 y = y |> dev
-loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.train! >= 0.13.9)
+loss = testfn(model, X, y)   # arguments (model, X, y) - follows Flux.train! >= 0.13.9
 @assert !isnan(loss) || error("model checkpoint failure")
 @info "model checkpoint OK"
 
 
 # loss functions
-function trainLossFunction(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return LibFluxML.ce_loss(yhat, y;
-                  logits=true,
-                  include_background=false,
-                  exclude_voids=true,
-                  weights=train_weights,
-                  reduction=:mean,
-                  device=dev,
-      )
+lossfn(yhat, y) = LibFluxML.dfl(yhat, y;
+                        logits=true,
+                        include_background=false,
+                        exclude_voids=true,
+                        gamma=2.0,
+                        focal_weight=1.0,
+                        dice_weight =1.0,
+                        weights=train_weights,
+                        reduction=:mean,
+                        device=dev,
+)
+function trainfn(model, X, y)
+      if isnothing(model.aux_classifier)
+            yhat = model(X)
+            return lossfn(yhat, y)
+      else
+            yhat, aux = model(X, Val(:aux))
+            return lossfn(yhat, y) + 0.4f0 * lossfn(aux, y)
+      end
 end
 
-function validLossFunction(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return LibFluxML.iou_loss(yhat, y;
-                  logits=true,
-                  include_background=false,
-                  exclude_voids=true,
-                  reduction=:mean,
-                  device=dev,
-      )
-end
+validfn(yhat, y) = LibFluxML.iou_loss(yhat, y;
+                                    logits=true,
+                                    include_background=false,
+                                    exclude_voids=true,
+                                    reduction=:mean,
+                                    device=dev,
+)
 @info "loss functions OK"
 
 
 # optimizer & scheduler
-lr  = 1e-4
-lr2 = 2e-4
-lr3 = 5e-5
+lr  = 5e-5
+lr2 = 1e-4
+lr3 = 1e-5
 β   = (0.9, 0.999)
 λ   = 5e-5   # or 1e-4
 # cn = 1.0    # clip norm
@@ -364,7 +378,7 @@ opt = OptimiserChain(
 )
 # opt_mp = Optimisers.MixedPrecision(Float16, opt)
 optimizerState = Flux.setup(opt, model)
-# Flux.freeze!(optimizerState.encoder)
+# Flux.freeze!(optimizerState.backbone_head)
 
 T1 = 8
 T2 = 100
@@ -377,33 +391,14 @@ scheduler = Sequence(raising_part => T1, cosine_part => T2, constant_part => T3)
 
 
 # one-number metrics
-function acc_score(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return acc_score(yhat, y; logits=true, exclude_voids=true, device=dev)
-end
-
-function f1_score(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return f1_score(yhat, y; logits=true, exclude_voids=true, device=dev)
-end
-
-function iou_score(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return iou_score(yhat, y; logits=true, exclude_voids=true, device=dev)
-end
-
-function mean_iou(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return per_class_iou(yhat, y; logits=true, exclude_voids=true, reduction=:mean, device=dev)
-end
-
-function validCE(model, X, y)
-    yhat, y = evaluate_model(model, X, y)
-    return LibFluxML.ce_loss(yhat, y;
-            logits=true, include_background=false, exclude_voids=true,
-            weights=train_weights, reduction=:mean, device=dev)
-end
-
+acc_score(yhat,y) = LibFluxML.acc_score(yhat, y; logits=true, exclude_voids=true, device=dev)
+f1_score(yhat,y)  = LibFluxML.f1_score(yhat, y; logits=true, exclude_voids=true, device=dev)
+iou_score(yhat,y) = LibFluxML.iou_score(yhat, y; logits=true, exclude_voids=true, device=dev)
+mean_iou(yhat,y)  = LibFluxML.per_class_iou(yhat, y; logits=true, exclude_voids=true, reduction=:mean,
+                              device=dev)
+validCE(yhat, y)  = LibFluxML.ce_loss(yhat, y; logits=true, include_background=false, exclude_voids=true,
+                              weights=train_weights, reduction=:mean,
+                              device=dev)
 metrics = [
       acc_score,
       f1_score,
@@ -413,10 +408,7 @@ metrics = [
 ]
 
 # per-class metrics
-function per_class_iou_score(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return per_class_iou(yhat, y; logits=true, exclude_voids=true, device=dev)
-end
+per_class_iou_score(yhat,y) = LibFluxML.per_class_iou(yhat, y; logits=true, exclude_voids=true, device=dev)
 @info "metrics OK"
 
 
@@ -429,7 +421,7 @@ logger = TBLogger(expanduser(tblogsfolder))
 @info "warmup training..."
 loader = first(train_loader, 1) .|> dev
 Flux.train!(model, loader, optimizerState) do m, x, y
-      trainLossFunction(m, x, y)
+      trainfn(m, x, y)
 end
 loader = nothing
 @info "warmup OK"
@@ -466,13 +458,13 @@ for (eta, epoch) in zip(scheduler, 1:epochs)
 
       # train epoch
       trainloss = 
-            trainEpoch!(trainLossFunction, model, train_loader, optimizerState; device=dev)
+            trainEpoch!(trainfn, model, train_loader, optimizerState; device=dev)
       @assert !isnan(trainloss) || error("training loss is NaN")
       @printf "Training loss: %.4f \n\n" trainloss
 
       # evaluate epoch
       validloss, validmetrics = 
-            evaluateEpoch(validLossFunction, model, valid_loader, metrics; device=dev)
+            evaluateEpoch(validfn, model, valid_loader, metrics; device=dev)
       @assert !isnan(validloss) || error("validation loss is NaN")
       @printf "Validation loss: %.4f \n" validloss
 

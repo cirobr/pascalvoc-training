@@ -22,7 +22,8 @@ scripts = [
     # "wdfl_os16_auxhead_p1.jl",
     # "wdfl_os16_auxhead_p2.jl",
     # "wfocal_os8_auxhead_p1.jl",
-    "wfocal_os8_auxhead_p2.jl",
+    # "wfocal_os8_auxhead_p2.jl",
+    "wfocal_os16_auxhead_p1.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 

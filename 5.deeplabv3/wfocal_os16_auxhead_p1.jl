@@ -9,13 +9,13 @@ Template for training vision models.
 cd(@__DIR__)
 
 ### arguments
-envpath     = "../"
-cudadevice  = 0
-epochs      = 500
-train_batch = 8
-accum_steps = 2
-valid_batch = train_batch * accum_steps
-debugflag   = true
+# envpath     = "../"
+# cudadevice  = 0
+# epochs      = 500
+# train_batch = 8
+# accum_steps = 2
+# valid_batch = train_batch * accum_steps
+# debugflag   = true
 
 
 ### libs
@@ -329,13 +329,11 @@ loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.tra
 
 
 # loss functions
-trainfn(yhat, y) = LibFluxML.dfl(yhat, y;
+trainfn(yhat, y) = LibFluxML.focal_loss(yhat, y;
                         logits=true,
                         include_background=false,
                         exclude_voids=true,
                         gamma=2.0,
-                        focal_weight=1.0,
-                        dice_weight =1.0,
                         weights=train_weights,
                         reduction=:mean,
                         device=dev,
@@ -350,10 +348,11 @@ function trainLossFunction(model,X,y)
       end
 end
 
-validLossFunction(yhat, y) = LibFluxML.iou_loss(yhat, y;
+validLossFunction(yhat, y) = LibFluxML.ce_loss(yhat, y;
                                     logits=true,
                                     include_background=false,
                                     exclude_voids=true,
+                                    weights=train_weights,
                                     reduction=:mean,
                                     device=dev,
 )

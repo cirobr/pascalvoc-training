@@ -1,6 +1,6 @@
 """
 Author: cirobr@GitHub
-Date: 08-Nov-2026
+Date: 10-Nov-2026
 
 Template for kd vision models.
 """
@@ -12,8 +12,8 @@ cd(@__DIR__)
 # envpath     = "../"
 # cudadevice  = 0
 # epochs      = 500
-# train_batch = 8
-# accum_steps = 2
+# train_batch = 4
+# accum_steps = 4
 # valid_batch = train_batch * accum_steps
 # debugflag   = true
 
@@ -54,7 +54,6 @@ import Statistics: mean, minimum, maximum, norm, std, median
 
 # private libs
 using LibFluxML
-import LibFluxML: acc_score, f1_score, iou_score, per_class_iou   # metrics
 using PreprocessingImages; p=PreprocessingImages
 using LibDataAug
 import LibDataAug: apply_data_augmentation
@@ -64,7 +63,7 @@ using LibCUDA
 
 # dataset constants
 const imagesize = (500,500)   # original size
-const framesize = (256,256)   # resized size
+const framesize = (256,256)   # cropped size
 const classnrs  = pv.class_numbers   # 0:20
 const C_out = 1024
 C_in = 3
@@ -302,11 +301,6 @@ valid_loader = Flux.DataLoader(valid_dataset,
 
 
 ### model
-function evaluate_model(model, X, y)
-      yhat = model(X)
-      return (yhat, y)
-end
-
 # Conv1x1 = 131K parameters
 # bottleneck = 54K  parameters
 # aligner = Chain(
@@ -325,15 +319,15 @@ model = modelcpu |> dev
 
 
 # model checkpoint
-function lossfn(model, X, y)   # loss function for testing purposes only
-      yhat, y = evaluate_model(model, X, y)
+function testfn(model, X, y)   # loss function for testing purposes only
+      yhat = model(X)
       return Flux.mse(yhat, y)
 end
 
 (X,y) = first(train_loader)
 X = X |> dev
 y = y |> dev
-loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.train! >= 0.13.9)
+loss = testfn(model, X, y)   # arguments (model, X, y) - follows Flux.train! >= 0.13.9
 @assert !isnan(loss) || error("model checkpoint failure")
 @info "model checkpoint OK"
 
@@ -343,17 +337,15 @@ loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.tra
 NOTE: T² factor applies to log-based losses such as kldivergence and cross-entropy, but not to mse.
 The mse loss is already scaled by the temperature factor in the softmax function.
 """
-T = 1   ### Distillation temperature: T=1 for encoder, T=3 or 4 for logits.
+### Distillation temperature: T=1 for encoder, T=3 or 4 for logits.
+lossfn(yhat, y; T=1) = (T^2) * LibFluxML.softloss(yhat, y, Flux.kldivergence; T=T, dims=3)
 
-function trainLossFunction(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return (T*T) * LibFluxML.softloss(yhat, y, Flux.kldivergence; T=T, dims=3)
+function trainfn(model, X, y)
+      yhat = model(X)
+      return lossfn(yhat, y)
 end
 
-function validLossFunction(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return LibFluxML.softloss(yhat, y, Flux.kldivergence; T=1, dims=3)
-end
+validfn(yhat, y) = LibFluxML.softloss(yhat, y, Flux.kldivergence; T=1, dims=3)
 @info "loss functions OK"
 
 
@@ -388,35 +380,14 @@ scheduler = Sequence(raising_part => T1, cosine_part => T2, constant_part => T3)
 
 
 # one-number metrics
-function mae(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return Flux.mae(yhat, y)
-end
-
-function mse(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return Flux.mse(yhat, y)
-end
-
-function soft_cos_loss(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return LibFluxML.softloss(yhat, y, LibFluxML.cosine_loss; T=1, dims=3)
-end
-
-function soft_kldiv(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return LibFluxML.softloss(yhat, y, Flux.kldivergence; T=1, dims=3)
-end
-
+soft_cos_loss(yhat, y) = LibFluxML.softloss(yhat, y, LibFluxML.cosine_loss; T=1, dims=3)
+soft_kldiv(yhat, y)    = LibFluxML.softloss(yhat, y, Flux.kldivergence; T=1, dims=3)
 const ssim_conv = LibFluxML.make_ssim_conv(C_out; kernel_size=11, σ=1.5f0) |> dev
-function ssim(model,X,y)
-      yhat, y = evaluate_model(model, X, y)
-      return LibFluxML.ssim(yhat,y; SSIM_CONV=ssim_conv)
-end
+ssim(yhat, y)          = LibFluxML.ssim(yhat, y; SSIM_CONV=ssim_conv)
 
 metrics = [
-      mae,
-      mse,
+      Flux.mae,
+      Flux.mse,
       soft_cos_loss,
       soft_kldiv,
       ssim,
@@ -433,7 +404,7 @@ logger = TBLogger(expanduser(tblogsfolder))
 @info "warmup training..."
 loader = first(train_loader, 1) .|> dev
 Flux.train!(model, loader, optimizerState) do m, x, y
-      trainLossFunction(m, x, y)
+      trainfn(m, x, y)
 end
 loader = nothing
 @info "warmup OK"
@@ -470,13 +441,13 @@ for (eta, epoch) in zip(scheduler, 1:epochs)
 
       # train epoch
       trainloss = 
-            trainEpoch!(trainLossFunction, model, train_loader, optimizerState; device=dev)
+            trainEpoch!(trainfn, model, train_loader, optimizerState; device=dev)
       @assert !isnan(trainloss) || error("training loss is NaN")
       @printf "Training loss: %.4f \n\n" trainloss
 
       # evaluate epoch
       validloss, validmetrics = 
-            evaluateEpoch(validLossFunction, model, valid_loader, metrics; device=dev)
+            evaluateEpoch(validfn, model, valid_loader, metrics; device=dev)
       @assert !isnan(validloss) || error("validation loss is NaN")
       @printf "Validation loss: %.4f \n" validloss
 
