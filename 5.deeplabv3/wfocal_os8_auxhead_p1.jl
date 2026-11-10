@@ -294,17 +294,17 @@ valid_loader = Flux.DataLoader(valid_dataset,
 
 
 ### model
-# model_state = Flux.state(bb32[1:end-1])
-# Flux.loadmodel!(bb16[1:end-1], model_state)
+model_state = Flux.state(bb32[1:end-1])
+Flux.loadmodel!(bb8[1:end-1], model_state)
 modelcpu = DeepLab.DeepLabV3(C_in, C_out;
-                              backbone=bb16,
+                              backbone=bb8,
                               use_aux=true,
                               aux_index=4,
-                              aspp_rates=(6,12,18),
+                              aspp_rates=(12,24,36),
 )
-fpfn = "models/wdfl_os16_auxhead_p1/bestmodel.jld2"
-LibFluxML.loadModelState!(fpfn, modelcpu)
-@info "model loaded from $fpfn"
+# fpfn = "../2.baseline/models/dfl_2e-3_part2/bestmodel.jld2"
+# LibFluxML.loadModelState!(fpfn, modelcpu)
+# @info "model loaded from $fpfn"
 model = modelcpu |> dev
 @info "model OK"
 
@@ -329,33 +329,32 @@ loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.tra
 
 
 # loss functions
-lossfn(yhat, y) = LibFluxML.dfl(yhat, y;
+trainfn(yhat, y) = LibFluxML.focal_loss(yhat, y;
                         logits=true,
                         include_background=false,
                         exclude_voids=true,
                         gamma=2.0,
-                        focal_weight=1.2,
-                        dice_weight =0.8,
                         weights=train_weights,
                         reduction=:mean,
                         device=dev,
 )
-function trainfn(model, X, y)
+function trainLossFunction(model,X,y)
       if isnothing(model.aux_classifier)
             yhat = model(X)
-            return lossfn(yhat, y)
+            return trainfn(yhat, y)
       else
             yhat, aux = model(X, Val(:aux))
-            return lossfn(yhat, y) + 0.4f0 * lossfn(aux, y)
+            return trainfn(yhat, y) + 0.4f0 * trainfn(aux, y)
       end
 end
 
-validfn(yhat, y) = LibFluxML.iou_loss(yhat, y;
-                        logits=true,
-                        include_background=false,
-                        exclude_voids=true,
-                        reduction=:mean,
-                        device=dev,
+validLossFunction(yhat, y) = LibFluxML.ce_loss(yhat, y;
+                                    logits=true,
+                                    include_background=false,
+                                    exclude_voids=true,
+                                    weights=train_weights,
+                                    reduction=:mean,
+                                    device=dev,
 )
 @info "loss functions OK"
 
@@ -378,7 +377,7 @@ opt = OptimiserChain(
 )
 # opt_mp = Optimisers.MixedPrecision(Float16, opt)
 optimizerState = Flux.setup(opt, model)
-# Flux.freeze!(optimizerState.backbone_head)
+Flux.freeze!(optimizerState.backbone_head)
 
 T1 = 8
 T2 = 100
@@ -421,7 +420,7 @@ logger = TBLogger(expanduser(tblogsfolder))
 @info "warmup training..."
 loader = first(train_loader, 1) .|> dev
 Flux.train!(model, loader, optimizerState) do m, x, y
-      trainfn(m, x, y)
+      trainLossFunction(m, x, y)
 end
 loader = nothing
 @info "warmup OK"
@@ -458,13 +457,13 @@ for (eta, epoch) in zip(scheduler, 1:epochs)
 
       # train epoch
       trainloss = 
-            trainEpoch!(trainfn, model, train_loader, optimizerState; device=dev)
+            trainEpoch!(trainLossFunction, model, train_loader, optimizerState; device=dev)
       @assert !isnan(trainloss) || error("training loss is NaN")
       @printf "Training loss: %.4f \n\n" trainloss
 
       # evaluate epoch
       validloss, validmetrics = 
-            evaluateEpoch(validfn, model, valid_loader, metrics; device=dev)
+            evaluateEpoch(validLossFunction, model, valid_loader, metrics; device=dev)
       @assert !isnan(validloss) || error("validation loss is NaN")
       @printf "Validation loss: %.4f \n" validloss
 

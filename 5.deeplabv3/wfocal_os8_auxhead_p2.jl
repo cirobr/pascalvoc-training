@@ -294,17 +294,17 @@ valid_loader = Flux.DataLoader(valid_dataset,
 
 
 ### model
-model_state = Flux.state(bb32[1:end-1])
-Flux.loadmodel!(bb16[1:end-1], model_state)
+# model_state = Flux.state(bb32[1:end-1])
+# Flux.loadmodel!(bb8[1:end-1], model_state)
 modelcpu = DeepLab.DeepLabV3(C_in, C_out;
-                              backbone=bb16,
+                              backbone=bb8,
                               use_aux=true,
                               aux_index=4,
-                              aspp_rates=(6,12,18),
+                              aspp_rates=(12,24,36),
 )
-# fpfn = "../2.baseline/models/dfl_2e-3_part2/bestmodel.jld2"
-# LibFluxML.loadModelState!(fpfn, modelcpu)
-# @info "model loaded from $fpfn"
+fpfn = "models/wfocal_os8_auxhead_p1/bestmodel.jld2"
+LibFluxML.loadModelState!(fpfn, modelcpu)
+@info "model loaded from $fpfn"
 model = modelcpu |> dev
 @info "model OK"
 
@@ -348,10 +348,11 @@ function trainLossFunction(model,X,y)
       end
 end
 
-validLossFunction(yhat, y) = LibFluxML.iou_loss(yhat, y;
+validLossFunction(yhat, y) = LibFluxML.ce_loss(yhat, y;
                                     logits=true,
                                     include_background=false,
                                     exclude_voids=true,
+                                    weights=train_weights,
                                     reduction=:mean,
                                     device=dev,
 )
@@ -376,7 +377,7 @@ opt = OptimiserChain(
 )
 # opt_mp = Optimisers.MixedPrecision(Float16, opt)
 optimizerState = Flux.setup(opt, model)
-Flux.freeze!(optimizerState.backbone_head)
+# Flux.freeze!(optimizerState.backbone_head)
 
 T1 = 8
 T2 = 100
