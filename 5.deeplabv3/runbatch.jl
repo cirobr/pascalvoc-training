@@ -8,7 +8,7 @@ Template for executing multiple scripts in series.
 ### arguments
 envpath       = "../"
 cudadevice    = 1
-epochs        = 1 #500
+epochs        = 500
 train_batch   = 4
 accum_steps   = 3
 valid_batch   = train_batch * accum_steps
@@ -20,7 +20,9 @@ scripts = [
     # "wdfl_os32_p1.jl",
     # "wdfl_os16_p1.jl",
     # "wdfl_os16_auxhead_p1.jl",
-    "wdfl_os16_auxhead_p2.jl",
+    # "wdfl_os16_auxhead_p2.jl",
+    "wdfl_os16_auxhead_p2_boostfocal.jl",
+    "wfocal_os16_auxhead_p1.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
