@@ -12,7 +12,7 @@ epochs        = 500
 train_batch   = 4
 accum_steps   = 4
 valid_batch   = train_batch * accum_steps
-debugflag     = false
+debugflag     = true
 
 
 ### projects
@@ -25,6 +25,7 @@ scripts = [
     # "wfocal_os8_auxhead_p2.jl",
     # "wfocal_os16_auxhead_p1.jl",
     # "wfocal_os16_auxhead_p1a.jl",   # 1e-4 regularizer
+    "wfocal_os16_auxhead_p1b.jl",   # label smoothing
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
