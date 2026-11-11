@@ -53,6 +53,7 @@ import Statistics: mean, minimum, maximum, norm, std, median
 
 # private libs
 using DeepLab
+include("learn.jl")
 using LibFluxML
 using PreprocessingImages; p=PreprocessingImages
 using LibDataAug
@@ -255,7 +256,7 @@ function Flux.getobs(d::PascalVocDataset, i::Int)
 
       X = convert_image_to_tensor(img) |> x->normalize_tensor(x; means=means, stds=stds)
       y_hard = convert_mask_to_tensor(mask)
-      y_soft = Flux.label_smoothing(y_hard, 0.1)   # label smoothing
+      y_soft = Flux.label_smoothing(y_hard, 0.1) .|> Float16   # label smoothing
       
       return (X, y_hard, y_soft)
 end
@@ -292,7 +293,6 @@ valid_loader = Flux.DataLoader(valid_dataset,
                         shuffle=false,
 )
 @info "data loaders OK"
-@assert false
 
 
 ### model
@@ -312,7 +312,7 @@ model = modelcpu |> dev
 
 
 # model checkpoint
-function lossfn(model, X, y)   # loss function for testing purposes only
+function testfn(model, X, y)   # loss function for testing purposes only
       if isnothing(model.aux_classifier)
             yhat = model(X)
             return Flux.mse(yhat, y)
@@ -322,46 +322,39 @@ function lossfn(model, X, y)   # loss function for testing purposes only
       end
 end
 
-(X, y_hard, y_soft) = first(train_loader) .|> dev
-loss = lossfn(model, X, y_hard)   # the model is the first argument (follows Flux.train! >= 0.13.9)
+(X, yhard, ysoft) = first(train_loader) .|> dev
+loss = testfn(model, X, yhard)   # arguments (model, X, y) - follows Flux.train! >= 0.13.9
 @assert !isnan(loss) || error("model checkpoint failure")
-@show unique(cpu(y_soft))
+@show unique(cpu(ysoft))
 @info "model checkpoint OK"
 
 
 # loss functions
-function trainfn(yhat, y_soft)
-      return LibFluxML.focal_loss(yhat, y_soft;
+lossfn(yhat, y) = LibFluxML.dice_loss(yhat, y;
                         logits=true,
                         include_background=false,
                         exclude_voids=true,
-                        gamma=2.0,
                         weights=train_weights,
                         reduction=:mean,
                         device=dev,
 )
-end
-
-function trainLossFunction(model, X, _, y_soft)
+function trainfn(model,X,y)
       if isnothing(model.aux_classifier)
             yhat = model(X)
-            return trainfn(yhat, y_soft)
+            return lossfn(yhat, y)
       else
             yhat, aux = model(X, Val(:aux))
-            return trainfn(yhat, y_soft) + 0.4f0 * trainfn(aux, y_soft)
+            return lossfn(yhat, y) + 0.4f0 * lossfn(aux, y)
       end
 end
 
-function validLossFunction(yhat, y_hard)
-      return LibFluxML.ce_loss(yhat, y_hard;
-                              logits=true,
-                              include_background=false,
-                              exclude_voids=true,
-                              weights=train_weights,
-                              reduction=:mean,
-                              device=dev,
+validfn(yhat, y) = LibFluxML.iou_loss(yhat, y;
+                        logits=true,
+                        include_background=false,
+                        exclude_voids=true,
+                        reduction=:mean,
+                        device=dev,
 )
-end
 @info "loss functions OK"
 
 
@@ -396,29 +389,14 @@ scheduler = Sequence(raising_part => T1, cosine_part => T2, constant_part => T3)
 
 
 # one-number metrics
-function acc_score(yhat,y)
-      y_hard = y .> 0.5 .|> Bool
-      LibFluxML.acc_score(yhat, y_hard; logits=true, exclude_voids=true, device=dev)
-end
-function f1_score(yhat,y)
-      y_hard = y .> 0.5 .|> Bool
-      LibFluxML.f1_score(yhat, y_hard; logits=true, exclude_voids=true, device=dev)
-end
-function iou_score(yhat,y)
-      y_hard = y .> 0.5 .|> Bool
-      LibFluxML.iou_score(yhat, y_hard; logits=true, exclude_voids=true, device=dev)
-end
-function mean_iou(yhat,y)
-      y_hard = y .> 0.5 .|> Bool
-      LibFluxML.per_class_iou(yhat, y_hard; logits=true, exclude_voids=true, reduction=:mean,
+acc_score(yhat,y) = LibFluxML.acc_score(yhat, y; logits=true, exclude_voids=true, device=dev)
+f1_score(yhat,y)  = LibFluxML.f1_score(yhat, y; logits=true, exclude_voids=true, device=dev)
+iou_score(yhat,y) = LibFluxML.iou_score(yhat, y; logits=true, exclude_voids=true, device=dev)
+mean_iou(yhat,y)  = LibFluxML.per_class_iou(yhat, y; logits=true, exclude_voids=true, reduction=:mean,
                               device=dev)
-end
-function validCE(yhat, y)
-      y_hard = y .> 0.5 .|> Bool
-      LibFluxML.ce_loss(yhat, y_hard; logits=true, include_background=false, exclude_voids=true,
+validCE(yhat, y)  = LibFluxML.ce_loss(yhat, y; logits=true, include_background=false, exclude_voids=true,
                               weights=train_weights, reduction=:mean,
                               device=dev)
-end
 metrics = [
       acc_score,
       f1_score,
@@ -428,10 +406,7 @@ metrics = [
 ]
 
 # per-class metrics
-function per_class_iou_score(yhat, y)
-      y_hard = y .> 0.5 .|> Bool
-      LibFluxML.per_class_iou(yhat, y_hard; logits=true, exclude_voids=true, device=dev)
-end
+per_class_iou_score(yhat,y) = LibFluxML.per_class_iou(yhat, y; logits=true, exclude_voids=true, device=dev)
 @info "metrics OK"
 
 
@@ -443,8 +418,8 @@ logger = TBLogger(expanduser(tblogsfolder))
 # warmup training
 @info "warmup training..."
 loader = first(train_loader, 1) .|> dev
-Flux.train!(model, loader, optimizerState) do m, x, y
-      trainLossFunction(m, x, y)
+Flux.train!(model, loader, optimizerState) do m, x, yh, ys
+      trainfn(m, x, ys)
 end
 loader = nothing
 @info "warmup OK"
@@ -481,13 +456,13 @@ for (eta, epoch) in zip(scheduler, 1:epochs)
 
       # train epoch
       trainloss = 
-            trainEpoch!(trainLossFunction, model, train_loader, optimizerState; device=dev)
+            trainEpoch!(trainfn, model, train_loader, optimizerState; device=dev)
       @assert !isnan(trainloss) || error("training loss is NaN")
       @printf "Training loss: %.4f \n\n" trainloss
 
       # evaluate epoch
       validloss, validmetrics = 
-            evaluateEpoch(validLossFunction, model, valid_loader, metrics; device=dev)
+            evaluateEpoch(validfn, model, valid_loader, metrics; device=dev)
       @assert !isnan(validloss) || error("validation loss is NaN")
       @printf "Validation loss: %.4f \n" validloss
 

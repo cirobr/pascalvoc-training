@@ -25,7 +25,9 @@ scripts = [
     # "wfocal_os8_auxhead_p2.jl",
     # "wfocal_os16_auxhead_p1.jl",
     # "wfocal_os16_auxhead_p1a.jl",   # 1e-4 regularizer
-    "wfocal_os16_auxhead_p1b.jl",   # label smoothing
+    "wfocal_os16_auxhead_smooth_p1.jl",   # label smoothing
+    "wdice_os16_auxhead_smooth_p1.jl",
+    "wdfl_os16_auxhead_smooth_p1.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
@@ -36,5 +38,5 @@ tblogs = @. "tblogs/" * scriptfolders * "/"
 @info "Batch started"
 @. rm(models, force=true, recursive=true)
 @. rm(tblogs, force=true, recursive=true)
-@. include(scripts)
+# @. include(scripts)
 @info "Batch completed!"
