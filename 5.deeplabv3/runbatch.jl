@@ -24,7 +24,7 @@ scripts = [
     # "wfocal_os8_auxhead_p1.jl",
     # "wfocal_os8_auxhead_p2.jl",
     # "wfocal_os16_auxhead_p1.jl",
-    "wfocal_os16_auxhead_p1a.jl",   # 1e-4 regularizer
+    # "wfocal_os16_auxhead_p1a.jl",   # 1e-4 regularizer
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
