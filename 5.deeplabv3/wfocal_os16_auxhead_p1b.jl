@@ -107,10 +107,9 @@ end
 
 function convert_mask_to_tensor(mask)
       return Flux.onehotbatch(mask, (classnrs..., 255), 255) |> # CHW
-            x->Flux.label_smoothing(x, 0.1) |>                  # label smoothing
             x->permutedims(x, (2,3,1)) |>                       # HWC
             x->x[:,:,1:end-1] .|>                               # remove 255/void class
-            Float16
+            Bool
 end
 
 
@@ -203,7 +202,7 @@ FLoops.@floop for i in 1:Ntrain
       )
 
       # Xs[:,:,:,i] = convert_image_to_tensor(img)
-      ys[:,:,:,i] = ( convert_mask_to_tensor(mask) .> 0.5 ) .|> Bool
+      ys[:,:,:,i] = convert_mask_to_tensor(mask)
 end
 
 # normalization statistics
@@ -255,9 +254,10 @@ function Flux.getobs(d::PascalVocDataset, i::Int)
       )
 
       X = convert_image_to_tensor(img) |> x->normalize_tensor(x; means=means, stds=stds)
-      y = convert_mask_to_tensor(mask)
+      y_hard = convert_mask_to_tensor(mask)
+      y_soft = Flux.label_smoothing(y_hard, 0.1)   # label smoothing
       
-      return (X, y)
+      return (X, y_hard, y_soft)
 end
 
 # Batch version
@@ -292,6 +292,7 @@ valid_loader = Flux.DataLoader(valid_dataset,
                         shuffle=false,
 )
 @info "data loaders OK"
+@assert false
 
 
 ### model
@@ -321,17 +322,16 @@ function lossfn(model, X, y)   # loss function for testing purposes only
       end
 end
 
-(X,y) = first(train_loader)
-X = X |> dev
-y = y |> dev
-loss = lossfn(model, X, y)   # the model is the first argument (follows Flux.train! >= 0.13.9)
+(X, y_hard, y_soft) = first(train_loader) .|> dev
+loss = lossfn(model, X, y_hard)   # the model is the first argument (follows Flux.train! >= 0.13.9)
 @assert !isnan(loss) || error("model checkpoint failure")
-@show unique(y)
+@show unique(cpu(y_soft))
 @info "model checkpoint OK"
 
 
 # loss functions
-trainfn(yhat, y) = LibFluxML.focal_loss(yhat, y;
+function trainfn(yhat, y_soft)
+      return LibFluxML.focal_loss(yhat, y_soft;
                         logits=true,
                         include_background=false,
                         exclude_voids=true,
@@ -340,24 +340,28 @@ trainfn(yhat, y) = LibFluxML.focal_loss(yhat, y;
                         reduction=:mean,
                         device=dev,
 )
-function trainLossFunction(model,X,y)
+end
+
+function trainLossFunction(model, X, _, y_soft)
       if isnothing(model.aux_classifier)
             yhat = model(X)
-            return trainfn(yhat, y)
+            return trainfn(yhat, y_soft)
       else
             yhat, aux = model(X, Val(:aux))
-            return trainfn(yhat, y) + 0.4f0 * trainfn(aux, y)
+            return trainfn(yhat, y_soft) + 0.4f0 * trainfn(aux, y_soft)
       end
 end
 
-validLossFunction(yhat, y) = LibFluxML.ce_loss(yhat, y;
-                                    logits=true,
-                                    include_background=false,
-                                    exclude_voids=true,
-                                    weights=train_weights,
-                                    reduction=:mean,
-                                    device=dev,
+function validLossFunction(yhat, y_hard)
+      return LibFluxML.ce_loss(yhat, y_hard;
+                              logits=true,
+                              include_background=false,
+                              exclude_voids=true,
+                              weights=train_weights,
+                              reduction=:mean,
+                              device=dev,
 )
+end
 @info "loss functions OK"
 
 
@@ -392,14 +396,29 @@ scheduler = Sequence(raising_part => T1, cosine_part => T2, constant_part => T3)
 
 
 # one-number metrics
-acc_score(yhat,y) = LibFluxML.acc_score(yhat, y; logits=true, exclude_voids=true, device=dev)
-f1_score(yhat,y)  = LibFluxML.f1_score(yhat, y; logits=true, exclude_voids=true, device=dev)
-iou_score(yhat,y) = LibFluxML.iou_score(yhat, y; logits=true, exclude_voids=true, device=dev)
-mean_iou(yhat,y)  = LibFluxML.per_class_iou(yhat, y; logits=true, exclude_voids=true, reduction=:mean,
+function acc_score(yhat,y)
+      y_hard = y .> 0.5 .|> Bool
+      LibFluxML.acc_score(yhat, y_hard; logits=true, exclude_voids=true, device=dev)
+end
+function f1_score(yhat,y)
+      y_hard = y .> 0.5 .|> Bool
+      LibFluxML.f1_score(yhat, y_hard; logits=true, exclude_voids=true, device=dev)
+end
+function iou_score(yhat,y)
+      y_hard = y .> 0.5 .|> Bool
+      LibFluxML.iou_score(yhat, y_hard; logits=true, exclude_voids=true, device=dev)
+end
+function mean_iou(yhat,y)
+      y_hard = y .> 0.5 .|> Bool
+      LibFluxML.per_class_iou(yhat, y_hard; logits=true, exclude_voids=true, reduction=:mean,
                               device=dev)
-validCE(yhat, y)  = LibFluxML.ce_loss(yhat, y; logits=true, include_background=false, exclude_voids=true,
+end
+function validCE(yhat, y)
+      y_hard = y .> 0.5 .|> Bool
+      LibFluxML.ce_loss(yhat, y_hard; logits=true, include_background=false, exclude_voids=true,
                               weights=train_weights, reduction=:mean,
                               device=dev)
+end
 metrics = [
       acc_score,
       f1_score,
@@ -409,7 +428,10 @@ metrics = [
 ]
 
 # per-class metrics
-per_class_iou_score(yhat,y) = LibFluxML.per_class_iou(yhat, y; logits=true, exclude_voids=true, device=dev)
+function per_class_iou_score(yhat, y)
+      y_hard = y .> 0.5 .|> Bool
+      LibFluxML.per_class_iou(yhat, y_hard; logits=true, exclude_voids=true, device=dev)
+end
 @info "metrics OK"
 
 
