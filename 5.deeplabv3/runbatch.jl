@@ -17,17 +17,9 @@ debugflag     = false
 
 ### projects
 scripts = [
-    # "wdfl_os32_p1.jl",
-    # "wdfl_os16_p1.jl",
-    # "wdfl_os16_auxhead_p1.jl",
-    # "wdfl_os16_auxhead_p2.jl",   # best model, mIoU 0.07
-    # "wfocal_os8_auxhead_p1.jl",
-    # "wfocal_os8_auxhead_p2.jl",
-    # "wfocal_os16_auxhead_p1.jl",
-    # "wfocal_os16_auxhead_p1a.jl",   # 1e-4 regularizer
     # "ce.jl",      # os16, auxhead, 1e-4 regularizer, weighted loss, soft target
-    "ce_p2.jl",   # weights[1] = 0 (dominant in previous run)
-    "dice.jl",
+    # "ce_p2.jl",   # weights[1] = 0 (dominant in previous run)
+    # "dice.jl",    # best model
     # "dfl.jl",
     # "focal.jl",
 ]

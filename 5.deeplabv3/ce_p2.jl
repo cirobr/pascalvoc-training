@@ -379,7 +379,7 @@ opt = OptimiserChain(
 )
 # opt_mp = Optimisers.MixedPrecision(Float16, opt)
 optimizerState = Flux.setup(opt, model)
-# Flux.freeze!(optimizerState.backbone_head)
+Flux.freeze!(optimizerState.backbone_head)
 
 T1 = 8
 T2 = 100
