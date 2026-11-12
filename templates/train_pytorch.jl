@@ -34,13 +34,13 @@ using CUDA
 using Flux, cuDNN
 import Flux: gpu, cpu
 dev = cpu
-if CUDA.has_cuda_gpu()
-      dev = gpu
-      CUDA.device!(cudadevice)
-      @info "gpu OK"
-else
-      @warn "gpu disabled: using cpu."
-end
+# if CUDA.has_cuda_gpu()
+#       dev = gpu
+#       CUDA.device!(cudadevice)
+#       @info "gpu OK"
+# else
+#       @warn "gpu disabled: using cpu."
+# end
 
 using TinyMachines
 using Images

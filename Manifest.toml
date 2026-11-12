@@ -2,7 +2,7 @@
 
 julia_version = "1.13.3"
 manifest_format = "2.1"
-project_hash = "ef4c645c6708bd3f1396fb6ce85071db3a76cff3"
+project_hash = "437c1f4293e8850bd509644914b1d29f7425935e"
 
 [[deps.ADTypes]]
 deps = ["PrecompileTools"]
@@ -1485,9 +1485,9 @@ uuid = "deac9b47-8bc7-5906-a0fe-35ac56dc84c0"
 version = "8.22.0+0"
 
 [[deps.LibDataAug]]
-deps = ["Colors", "CoordinateTransformations", "DataAugmentation", "ImageFiltering", "ImageTransformations", "LinearAlgebra", "OffsetArrays", "StaticArrays"]
-git-tree-sha1 = "2dd22380536cf438a333598222451d9c218c677d"
-repo-rev = "newones"
+deps = ["Colors", "DataAugmentation", "OffsetArrays"]
+git-tree-sha1 = "4afd70cb5f2a4155b14f9a4dd675e30b89d71f0b"
+repo-rev = "main"
 repo-url = "git@github.com:cirobr/LibDataAug.jl.git"
 uuid = "8ce57647-ee5c-43be-a4d7-4c390306d9e9"
 version = "0.0.1-DEV"
