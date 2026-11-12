@@ -1,6 +1,6 @@
 """
 Author: cirobr@GitHub
-Date: 05-Nov-2026
+Date: 12-Nov-2026
 
 Template for training vision models.
 """
@@ -9,13 +9,13 @@ Template for training vision models.
 cd(@__DIR__)
 
 ### arguments
-# envpath     = "../"
-# cudadevice  = 0
-# epochs      = 500
-# train_batch = 8
-# accum_steps = 2
-# valid_batch = train_batch * accum_steps
-# debugflag   = true
+envpath     = "./"
+cudadevice  = 0
+epochs      = 1 #500
+train_batch = 4
+accum_steps = 4
+valid_batch = train_batch * accum_steps
+debugflag   = false
 
 
 ### libs
@@ -34,7 +34,7 @@ else
       @warn "gpu disabled: using cpu."
 end
 
-# using TinyMachines
+using TinyMachines
 using Images
 using DataAugmentation
 using OffsetArrays
@@ -52,19 +52,19 @@ using ProgressBars
 import Statistics: mean, minimum, maximum, norm, std, median
 
 # private libs
-using DeepLab
-include("learn.jl")
 using LibFluxML
 using PreprocessingImages; p=PreprocessingImages
 using LibDataAug
 import LibDataAug: apply_data_augmentation
+include("photometric.jl")
+include("perspective.jl")
 using PascalVocTools; const pv=PascalVocTools
 using LibCUDA
 
 
 # dataset constants
 const imagesize = (500,500)   # original size
-const framesize = (256,256)   # resized size
+const framesize = (256,256)   # cropped size
 const classnrs  = pv.class_numbers   # 0:20
 const C_out = length(classnrs)
 C_in = 3
@@ -77,7 +77,7 @@ const imagenet_stds  = Float32[0.229, 0.224, 0.225]
 
 
 # custom functions
-function get_image(path::String; colorflag::Bool=true)
+function get_image(path::String; colorflag::Bool)
       img = Images.load(expanduser(path))
       return colorflag ? RGB{N0f8}.(img) : Gray{N0f8}.(img)
 end
@@ -140,19 +140,19 @@ class_crop = ClassCentricCrop(
 intensity_trainpipe =
       Maybe(AdjustBrightness(0.4), 0.8) |>
       Maybe(AdjustContrast(0.4), 0.8) |>
-      Maybe(AdjustSaturation(0.4), 0.8) |>   # new
-      Maybe(AdjustHue(0.15), 0.5) |>         # new
-      Maybe(Grayscale(), 0.1) |>             # new
+      Maybe(AdjustSaturation(0.4), 0.8) |>   # new - pass
+      Maybe(AdjustHue(0.15), 0.5) |>         # new - pass
+      Maybe(Grayscale(), 0.1) #|>             # new - pass
       # Maybe(Posterize(6), 0.1) |>          # optional, not yet implemented
       # Maybe(Solarize(0.5), 0.1) |>         # optional, not yet implemented
       # Maybe(AdjustSharpness(2.0), 0.3) |>  # optional, not yet implemented
-      Maybe(GaussianBlur((0.1, 2.0)), 0.3)   # new
+      # Maybe(GaussianBlur((0.1, 2.0)), 0.3)   ### new
 
 geometric_trainpipe =
       Maybe(FlipX{2}(), 0.5) |>
-      # Maybe(Rotate(15), 0.5) |>
-      # Maybe(WarpAffine(0.1), 0.5) |>         # closest to RandomAffine
-      # Maybe(RandomPerspective(0.2), 0.5) |>  # new
+      Maybe(Rotate(15), 0.5) |>
+      Maybe(WarpAffine(0.1), 0.5) |>         # closest to RandomAffine - pass
+      # Maybe(RandomPerspective(0.2), 0.5) |>  ### new
       OneOf(
             [CenterResizeCrop(framesize), random_crop, class_crop],
             [0.15, 0.15, 0.70]
@@ -189,8 +189,8 @@ N = size(df, 1)
 train_idx, val_idx = MLUtils.splitobs(1:N, at=0.7, shuffle=true)
 dftrain = df[train_idx, :]
 dfvalid = df[val_idx, :]
-# dftrain = first(dftrain, 100)
-# dfvalid = first(dfvalid, 50)
+dftrain = first(dftrain, 100)
+dfvalid = first(dfvalid, 50)
 # @warn "train/valid split: $(size(dftrain,1)) train, $(size(dfvalid,1)) valid"
 
 # debug mode
@@ -210,29 +210,29 @@ Nvalid = size(dfvalid, 1)
 
 # calculate normalization parameters and class frequencies
 @info "calculating parameters ..."
-# Xs = Array{Float32,4}(undef, (framesize...,C_in,Ntrain))
-img = get_image(expanduser(dftrain.X[1]); colorflag=colorflag)   # dummy image
+Xs = Array{Float32,4}(undef, (framesize...,C_in,Ntrain))
+# img = get_image(expanduser(dftrain.X[1]); colorflag=colorflag)   # dummy image
 ys = Array{Bool,4}(undef, (framesize...,C_out,Ntrain))
 
 FLoops.@floop for i in 1:Ntrain
-      # img  = get_image(expanduser(dftrain.X[i]); colorflag=colorflag)
+      img  = get_image(expanduser(dftrain.X[i]); colorflag=colorflag)
       mask = get_mask(expanduser(dftrain.y[i]))
       
-      _, mask = apply_data_augmentation(img, mask;
+      img, mask = apply_data_augmentation(img, mask;
                         intensity_tfm = intensity_validpipe,
                         geometric_tfm = geometric_validpipe,
       )
 
-      # Xs[:,:,:,i] = convert_image_to_tensor(img)
+      Xs[:,:,:,i] = convert_image_to_tensor(img)
       ys[:,:,:,i] = convert_mask_to_tensor(mask)
 end
 
 # normalization statistics
-# means, stds = p.get_normalization_params(Xs)
-# means = means |> x->trunc.(x,digits=3) .|> Float32
-# stds  = stds  |> x->trunc.(x,digits=3) .|> Float32
-means = imagenet_means
-stds  = imagenet_stds
+means, stds = p.get_normalization_params(Xs)
+means = means |> x->trunc.(x,digits=3) .|> Float32
+stds  = stds  |> x->trunc.(x,digits=3) .|> Float32
+# means = imagenet_means
+# stds  = imagenet_stds
 
 @show means
 @show stds
@@ -276,10 +276,9 @@ function Flux.getobs(d::PascalVocDataset, i::Int)
       )
 
       X = convert_image_to_tensor(img) |> x->normalize_tensor(x; means=means, stds=stds)
-      y_hard = convert_mask_to_tensor(mask)
-      y_soft = Flux.label_smoothing(y_hard, 0.1) .|> Float16   # label smoothing
+      y = convert_mask_to_tensor(mask)
       
-      return (X, y_hard, y_soft)
+      return (X, y)
 end
 
 # Batch version
@@ -317,14 +316,7 @@ valid_loader = Flux.DataLoader(valid_dataset,
 
 
 ### model
-model_state = Flux.state(bb32[1:end-1])
-Flux.loadmodel!(bb16[1:end-1], model_state)
-modelcpu = DeepLab.DeepLabV3(C_in, C_out;
-                              backbone=bb16,
-                              use_aux=true,
-                              aux_index=4,
-                              aspp_rates=(6,12,18),
-)
+modelcpu = TinyMachines.UNet(C_in, C_out; activation=leakyrelu)
 # fpfn = "../2.baseline/models/dfl_2e-3_part2/bestmodel.jld2"
 # LibFluxML.loadModelState!(fpfn, modelcpu)
 # @info "model loaded from $fpfn"
@@ -334,39 +326,33 @@ model = modelcpu |> dev
 
 # model checkpoint
 function testfn(model, X, y)   # loss function for testing purposes only
-      if isnothing(model.aux_classifier)
-            yhat = model(X)
-            return Flux.mse(yhat, y)
-      else
-            yhat, aux = model(X, Val(:aux))
-            return Flux.mse(yhat, y) + 0.4f0 * Flux.mse(aux, y)
-      end
+      yhat = model(X)
+      return Flux.mse(yhat, y)
 end
 
-(X, yhard, ysoft) = first(train_loader) .|> dev
-loss = testfn(model, X, yhard)   # arguments (model, X, y) - follows Flux.train! >= 0.13.9
+(X,y) = first(train_loader)
+X = X |> dev
+y = y |> dev
+loss = testfn(model, X, y)   # arguments (model, X, y) - follows Flux.train! >= 0.13.9
 @assert !isnan(loss) || error("model checkpoint failure")
-@show unique(cpu(ysoft))
 @info "model checkpoint OK"
 
 
 # loss functions
-lossfn(yhat, y) = LibFluxML.dice_loss(yhat, y;
+lossfn(yhat, y) = LibFluxML.dfl(yhat, y;
                         logits=true,
                         include_background=false,
                         exclude_voids=true,
+                        gamma=2.0,
+                        focal_weight=1.0,
+                        dice_weight =1.0,
                         weights=train_weights,
                         reduction=:mean,
                         device=dev,
 )
-function trainfn(model,X,y)
-      if isnothing(model.aux_classifier)
-            yhat = model(X)
-            return lossfn(yhat, y)
-      else
-            yhat, aux = model(X, Val(:aux))
-            return lossfn(yhat, y) + 0.4f0 * lossfn(aux, y)
-      end
+function trainfn(model, X, y)
+      yhat = model(X)
+      return lossfn(yhat, y)
 end
 
 validfn(yhat, y) = LibFluxML.iou_loss(yhat, y;
@@ -384,7 +370,7 @@ lr  = 5e-5
 lr2 = 1e-4
 lr3 = 1e-5
 β   = (0.9, 0.999)
-λ   = 1e-4    # 5e-5 or 1e-4
+λ   = 5e-5   # or 1e-4
 # cn = 1.0    # clip norm
 # cg = 1.0    # clip grad
 
@@ -397,7 +383,7 @@ opt = OptimiserChain(
 )
 # opt_mp = Optimisers.MixedPrecision(Float16, opt)
 optimizerState = Flux.setup(opt, model)
-Flux.freeze!(optimizerState.backbone_head)
+# Flux.freeze!(optimizerState.backbone_head)
 
 T1 = 8
 T2 = 100
@@ -439,8 +425,8 @@ logger = TBLogger(expanduser(tblogsfolder))
 # warmup training
 @info "warmup training..."
 loader = first(train_loader, 1) .|> dev
-Flux.train!(model, loader, optimizerState) do m, x, yh, ys
-      trainfn(m, x, ys)
+Flux.train!(model, loader, optimizerState) do m, x, y
+      trainfn(m, x, y)
 end
 loader = nothing
 @info "warmup OK"
