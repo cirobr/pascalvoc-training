@@ -20,7 +20,8 @@ scripts = [
     # "ce.jl",      # os16, auxhead, 1e-4 regularizer, weighted loss, soft target
     # "ce_p2.jl",   # weights[1] = 0 (dominant in previous run)
     # "dice.jl",    # best model
-    # "dfl.jl",
+    # "gdl.jl",     # not working at all
+    "cedice.jl",
     # "focal.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]

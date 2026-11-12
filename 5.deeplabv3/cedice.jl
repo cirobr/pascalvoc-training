@@ -334,13 +334,14 @@ lossfn(yhat, y) = LibFluxML.dfl(yhat, y;
                         logits=true,
                         include_background=false,
                         exclude_voids=true,
-                        gamma=2.0,
-                        focal_weight=1.0,
+                        gamma=0,
+                        focal_weight=0.1,
                         dice_weight =1.0,
                         weights=train_weights,
                         reduction=:mean,
                         device=dev,
 )
+
 function trainfn(model,X,y)
       if isnothing(model.aux_classifier)
             yhat = model(X)
