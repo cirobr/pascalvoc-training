@@ -21,7 +21,7 @@ scripts = [
     # "ce_p2.jl",   # weights[1] = 0 (dominant in previous run)
     # "dice.jl",    # best model
     # "gdl.jl",     # not working at all
-    "cedice.jl",
+    # "cedice.jl",
     # "focal.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
@@ -33,5 +33,5 @@ tblogs = @. "tblogs/" * scriptfolders * "/"
 @info "Batch started"
 @. rm(models, force=true, recursive=true)
 @. rm(tblogs, force=true, recursive=true)
-@. include(scripts)
+# @. include(scripts)
 @info "Batch completed!"

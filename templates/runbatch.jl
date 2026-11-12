@@ -19,6 +19,7 @@ debugflag     = true
 scripts = [
     "train.jl",
     "kd.jl",
+    # "train_pytorch.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 

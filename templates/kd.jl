@@ -87,7 +87,7 @@ testmode!(teachermodel)
 @info "teacher model OK"
 
 # custom functions
-function get_image(path::String; colorflag::Bool=true)
+function get_image(path::String; colorflag::Bool)
       img = Images.load(expanduser(path))
       return colorflag ? RGB{N0f8}.(img) : Gray{N0f8}.(img)
 end

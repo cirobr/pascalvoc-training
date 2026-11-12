@@ -1,6 +1,6 @@
 """
 Author: cirobr@GitHub
-Date: 10-Nov-2026
+Date: 12-Nov-2026
 
 Template for training vision models.
 """
@@ -34,7 +34,7 @@ else
       @warn "gpu disabled: using cpu."
 end
 
-# using TinyMachines
+using TinyMachines
 using Images
 using DataAugmentation
 using OffsetArrays
@@ -52,7 +52,6 @@ using ProgressBars
 import Statistics: mean, minimum, maximum, norm, std, median
 
 # private libs
-using DeepLab
 using LibFluxML
 using PreprocessingImages; p=PreprocessingImages
 using LibDataAug
@@ -76,7 +75,7 @@ const imagenet_stds  = Float32[0.229, 0.224, 0.225]
 
 
 # custom functions
-function get_image(path::String; colorflag::Bool=true)
+function get_image(path::String; colorflag::Bool)
       img = Images.load(expanduser(path))
       return colorflag ? RGB{N0f8}.(img) : Gray{N0f8}.(img)
 end
@@ -188,29 +187,29 @@ Nvalid = size(dfvalid, 1)
 
 # calculate normalization parameters and class frequencies
 @info "calculating parameters ..."
-# Xs = Array{Float32,4}(undef, (framesize...,C_in,Ntrain))
-img = get_image(expanduser(dftrain.X[1]); colorflag=colorflag)   # dummy image
+Xs = Array{Float32,4}(undef, (framesize...,C_in,Ntrain))
+# img = get_image(expanduser(dftrain.X[1]); colorflag=colorflag)   # dummy image
 ys = Array{Bool,4}(undef, (framesize...,C_out,Ntrain))
 
 FLoops.@floop for i in 1:Ntrain
-      # img  = get_image(expanduser(dftrain.X[i]); colorflag=colorflag)
+      img  = get_image(expanduser(dftrain.X[i]); colorflag=colorflag)
       mask = get_mask(expanduser(dftrain.y[i]))
       
-      _, mask = apply_data_augmentation(img, mask;
+      img, mask = apply_data_augmentation(img, mask;
                         intensity_tfm = intensity_validpipe,
                         geometric_tfm = geometric_validpipe,
       )
 
-      # Xs[:,:,:,i] = convert_image_to_tensor(img)
+      Xs[:,:,:,i] = convert_image_to_tensor(img)
       ys[:,:,:,i] = convert_mask_to_tensor(mask)
 end
 
 # normalization statistics
-# means, stds = p.get_normalization_params(Xs)
-# means = means |> x->trunc.(x,digits=3) .|> Float32
-# stds  = stds  |> x->trunc.(x,digits=3) .|> Float32
-means = imagenet_means
-stds  = imagenet_stds
+means, stds = p.get_normalization_params(Xs)
+means = means |> x->trunc.(x,digits=3) .|> Float32
+stds  = stds  |> x->trunc.(x,digits=3) .|> Float32
+# means = imagenet_means
+# stds  = imagenet_stds
 
 @show means
 @show stds
@@ -294,14 +293,7 @@ valid_loader = Flux.DataLoader(valid_dataset,
 
 
 ### model
-# model_state = Flux.state(bb32[1:end-1])
-# Flux.loadmodel!(bb16[1:end-1], model_state)
-modelcpu = DeepLab.DeepLabV3(C_in, C_out;
-                              backbone=bb16,
-                              use_aux=true,
-                              aux_index=4,
-                              aspp_rates=(6,12,18),
-)
+modelcpu = TinyMachines.UNet(C_in, C_out; activation=leakyrelu)
 # fpfn = "../2.baseline/models/dfl_2e-3_part2/bestmodel.jld2"
 # LibFluxML.loadModelState!(fpfn, modelcpu)
 # @info "model loaded from $fpfn"
@@ -311,13 +303,8 @@ model = modelcpu |> dev
 
 # model checkpoint
 function testfn(model, X, y)   # loss function for testing purposes only
-      if isnothing(model.aux_classifier)
-            yhat = model(X)
-            return Flux.mse(yhat, y)
-      else
-            yhat, aux = model(X, Val(:aux))
-            return Flux.mse(yhat, y) + 0.4f0 * Flux.mse(aux, y)
-      end
+      yhat = model(X)
+      return Flux.mse(yhat, y)
 end
 
 (X,y) = first(train_loader)
@@ -341,21 +328,16 @@ lossfn(yhat, y) = LibFluxML.dfl(yhat, y;
                         device=dev,
 )
 function trainfn(model, X, y)
-      if isnothing(model.aux_classifier)
-            yhat = model(X)
-            return lossfn(yhat, y)
-      else
-            yhat, aux = model(X, Val(:aux))
-            return lossfn(yhat, y) + 0.4f0 * lossfn(aux, y)
-      end
+      yhat = model(X)
+      return lossfn(yhat, y)
 end
 
 validfn(yhat, y) = LibFluxML.iou_loss(yhat, y;
-                                    logits=true,
-                                    include_background=false,
-                                    exclude_voids=true,
-                                    reduction=:mean,
-                                    device=dev,
+                        logits=true,
+                        include_background=false,
+                        exclude_voids=true,
+                        reduction=:mean,
+                        device=dev,
 )
 @info "loss functions OK"
 
