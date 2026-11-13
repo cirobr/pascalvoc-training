@@ -1,11 +1,10 @@
 using Colors: HSV, Gray, RGB, N0f8
 using ImageFiltering   # only if GaussianBlur is included
 
-"""
-    AdjustSaturation(δ = 0.4)
+# ---------- helpers ----------
+_preserve_eltype(img, out) = oftype(img, out)
 
-Multiply the saturation of an RGB image by a factor sampled from [1-δ, 1+δ].
-"""
+# ---------- AdjustSaturation ----------
 struct AdjustSaturation <: Transform
     δ::Float32
 end
@@ -23,15 +22,11 @@ function DataAugmentation.apply(tfm::AdjustSaturation, item::Image;
         s = clamp(hsv[i].s * factor, 0f0, 1f0)
         hsv[i] = HSV(hsv[i].h, s, hsv[i].v)
     end
-    return Image(RGB{N0f8}.(hsv))
+    # Preserve original element type (RGB{N0f8}, Gray{N0f8}, ...)
+    return Image(_preserve_eltype(img, hsv))
 end
 
-
-"""
-    AdjustHue(δ = 0.1)
-
-Shift the hue of an RGB image by a value sampled from [-δ, δ] (in turns, 0–1).
-"""
+# ---------- AdjustHue ----------
 struct AdjustHue <: Transform
     δ::Float32
 end
@@ -49,31 +44,20 @@ function DataAugmentation.apply(tfm::AdjustHue, item::Image;
         h = mod(hsv[i].h + shift, 1f0)
         hsv[i] = HSV(h, hsv[i].s, hsv[i].v)
     end
-    return Image(RGB{N0f8}.(hsv))
+    return Image(_preserve_eltype(img, hsv))
 end
 
-
-"""
-    Grayscale()
-
-Convert an RGB image to grayscale and back to RGB.
-Use with `Maybe` for stochastic application.
-"""
+# ---------- Grayscale ----------
 struct Grayscale <: Transform end
 
 function DataAugmentation.apply(::Grayscale, item::Image; randstate = nothing)
     img = itemdata(item)
     gray = Gray.(img)
-    return Image(RGB{N0f8}.(gray))
+    # Convert back to the original color type
+    return Image(_preserve_eltype(img, gray))
 end
 
-
-"""
-    GaussianBlur(σ = (0.1, 2.0))
-
-Apply a Gaussian blur with σ sampled from the given interval.
-Requires ImageFiltering.
-"""
+# ---------- GaussianBlur ----------
 struct GaussianBlur <: Transform
     σmin::Float32
     σmax::Float32
@@ -89,5 +73,6 @@ function DataAugmentation.apply(tfm::GaussianBlur, item::Image;
     img = itemdata(item)
     σ = randstate
     blurred = ImageFiltering.imfilter(img, ImageFiltering.Kernel.gaussian(σ))
-    return Image(blurred)
+    # imfilter often returns Float32 or a different color type → restore original
+    return Image(_preserve_eltype(img, blurred))
 end

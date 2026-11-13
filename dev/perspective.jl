@@ -2,6 +2,7 @@ using CoordinateTransformations
 using ImageTransformations
 using StaticArrays: SMatrix, SVector
 using LinearAlgebra
+using OffsetArrays
 
 """
     RandomPerspective(distortion_scale = 0.2)
@@ -50,7 +51,11 @@ function DataAugmentation.apply(tfm::RandomPerspective, item::Image;
     tform = HomographyInv(Hinv)
 
     warped = ImageTransformations.warp(img, tform, axes(img))
-    return Image(collect(warped))
+
+    # Allocate a fresh 1-based array and copy
+    plain = similar(img, size(warped))
+    copyto!(plain, warped)
+    return Image(plain)
 end
 
 function DataAugmentation.apply(tfm::RandomPerspective, item::MaskMulti;
@@ -72,7 +77,17 @@ function DataAugmentation.apply(tfm::RandomPerspective, item::MaskMulti;
 
     warped = ImageTransformations.warp(mask, tform, axes(mask);
                                        method = ImageTransformations.Constant())
-    return MaskMulti(collect(warped), item.classes)
+
+    # Fresh array + integer labels
+    plain = similar(mask, size(warped))
+    copyto!(plain, warped)
+    warped_int = round.(eltype(mask), plain)
+
+    # Clamp to the valid class range (avoids 0s introduced by the warp fill)
+    cmin, cmax = extrema(item.classes)
+    warped_int = clamp.(warped_int, cmin, cmax)
+
+    return MaskMulti(warped_int, item.classes)
 end
 
 """

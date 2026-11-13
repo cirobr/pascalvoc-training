@@ -142,17 +142,17 @@ intensity_trainpipe =
       Maybe(AdjustContrast(0.4), 0.8) |>
       Maybe(AdjustSaturation(0.4), 0.8) |>   # new - pass
       Maybe(AdjustHue(0.15), 0.5) |>         # new - pass
-      Maybe(Grayscale(), 0.1) #|>             # new - pass
+      Maybe(Grayscale(), 0.1) |>             # new - pass
       # Maybe(Posterize(6), 0.1) |>          # optional, not yet implemented
       # Maybe(Solarize(0.5), 0.1) |>         # optional, not yet implemented
       # Maybe(AdjustSharpness(2.0), 0.3) |>  # optional, not yet implemented
-      # Maybe(GaussianBlur((0.1, 2.0)), 0.3)   ### new
+      Maybe(GaussianBlur((0.1, 2.0)), 0.3)   # new - pass
 
 geometric_trainpipe =
       Maybe(FlipX{2}(), 0.5) |>
       Maybe(Rotate(15), 0.5) |>
       Maybe(WarpAffine(0.1), 0.5) |>         # closest to RandomAffine - pass
-      # Maybe(RandomPerspective(0.2), 0.5) |>  ### new
+      Maybe(RandomPerspective(0.2), 0.5) |>  ### new
       OneOf(
             [CenterResizeCrop(framesize), random_crop, class_crop],
             [0.15, 0.15, 0.70]
