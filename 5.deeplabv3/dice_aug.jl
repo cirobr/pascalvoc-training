@@ -203,7 +203,7 @@ Nvalid = size(dfvalid, 1)
 img = get_image(expanduser(dftrain.X[1]); colorflag=colorflag)   # dummy image
 ys = Array{Bool,4}(undef, (framesize...,C_out,Ntrain))
 
-FLoops.@floop for i in pb.ProgressBar(1:Ntrain)
+Threads.@threads for i in pb.ProgressBar(1:Ntrain)
       # img  = get_image(expanduser(dftrain.X[i]); colorflag=colorflag)
       mask = get_mask(expanduser(dftrain.y[i]))
       

@@ -63,8 +63,7 @@ using LibCUDA
 
 # dataset constants
 const imagesize = (500,500)   # original size
-# const framesize = (256,256)   # cropped size
-const framesize = imagesize
+const framesize = (256,256)   # cropped size
 const classnrs  = pv.class_numbers   # 0:20
 const C_out = length(classnrs)
 C_in = 3
@@ -115,17 +114,17 @@ end
 
 
 # images augmentation
-# const short_sides = 320:500
-# const crop_size = framesize[1]
+const short_sides = 320:500
+const crop_size = framesize[1]
 
-# random_crop = RandomCentricCrop(
-#       short_sides = short_sides,
-#       crop = crop_size,
-# )
-# class_crop = ClassCentricCrop(
-#       short_sides = short_sides,
-#       crop = crop_size,
-# )
+random_crop = RandomCentricCrop(
+      short_sides = short_sides,
+      crop = crop_size,
+)
+class_crop = ClassCentricCrop(
+      short_sides = short_sides,
+      crop = crop_size,
+)
 
 intensity_trainpipe =
       Maybe(AdjustBrightness(0.4), 0.8) |>
@@ -137,18 +136,19 @@ intensity_trainpipe =
       Maybe(Solarize(0.5), 0.1) |>           # new - pass
       Maybe(AdjustSharpness(2.0), 0.3) |>    # new - pass
       Maybe(GaussianBlur((0.1, 2.0)), 0.3)   # new - pass
+
 geometric_trainpipe =
       Maybe(FlipX{2}(), 0.5) |>
       Maybe(Rotate(15), 0.5) |>
       Maybe(WarpAffine(0.1), 0.5) |>         # closest to RandomAffine - pass
       Maybe(RandomPerspective(0.2), 0.5) |>  # new - pass
-      CenterCrop(framesize)
-      # OneOf(
-      #       [CenterResizeCrop(framesize), random_crop, class_crop],
-      #       [0.15, 0.15, 0.70]
-      # )
+      OneOf(
+            [CenterResizeCrop(framesize), random_crop, class_crop],
+            [0.15, 0.15, 0.70]
+      )
 
 intensity_validpipe = Identity()
+
 geometric_validpipe = CenterCrop(framesize)
 @info "environment OK"
 
@@ -203,7 +203,7 @@ Nvalid = size(dfvalid, 1)
 img = get_image(expanduser(dftrain.X[1]); colorflag=colorflag)   # dummy image
 ys = Array{Bool,4}(undef, (framesize...,C_out,Ntrain))
 
-FLoops.@floop for i in pb.ProgressBar(1:Ntrain)
+Threads.@threads for i in pb.ProgressBar(1:Ntrain)
       # img  = get_image(expanduser(dftrain.X[i]); colorflag=colorflag)
       mask = get_mask(expanduser(dftrain.y[i]))
       
@@ -335,14 +335,18 @@ loss = testfn(model, X, y)   # arguments (model, X, y) - follows Flux.train! >= 
 
 
 # loss functions
-lossfn(yhat, y) = LibFluxML.ce_loss(yhat, y;
+lossfn(yhat, y) = LibFluxML.dfl(yhat, y;
                         logits=true,
                         include_background=false,
                         exclude_voids=true,
-                        # weights=train_weights,
+                        gamma=0, # 0 => cross entropy
+                        focal_weight=0.1,
+                        dice_weight =1.0,
+                        weights=train_weights,
                         reduction=:mean,
                         device=dev,
 )
+
 function trainfn(model,X,y)
       if isnothing(model.aux_classifier)
             yhat = model(X)

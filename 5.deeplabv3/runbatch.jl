@@ -9,8 +9,8 @@ Template for executing multiple scripts in series.
 envpath       = "../"
 cudadevice    = 1
 epochs        = 500
-train_batch   = 4
-accum_steps   = 4
+train_batch   = 1
+accum_steps   = 1
 valid_batch   = train_batch * accum_steps
 debugflag     = false
 
@@ -34,5 +34,5 @@ tblogs = @. "tblogs/" * scriptfolders * "/"
 @info "Batch started"
 @. rm(models, force=true, recursive=true)
 @. rm(tblogs, force=true, recursive=true)
-# @. include(scripts)
+@. include(scripts)
 @info "Batch completed!"
