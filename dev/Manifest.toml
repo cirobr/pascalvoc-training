@@ -2,7 +2,7 @@
 
 julia_version = "1.13.3"
 manifest_format = "2.1"
-project_hash = "d9c61042281af3152e2cc8206b73c9bdf72e6b3d"
+project_hash = "63e3d24227365c4900b1596eb143193abaee4ab4"
 
 [[deps.ADTypes]]
 deps = ["PrecompileTools"]
@@ -1485,12 +1485,12 @@ uuid = "deac9b47-8bc7-5906-a0fe-35ac56dc84c0"
 version = "8.22.0+0"
 
 [[deps.LibDataAug]]
-deps = ["Colors", "DataAugmentation", "OffsetArrays"]
-git-tree-sha1 = "4afd70cb5f2a4155b14f9a4dd675e30b89d71f0b"
-repo-rev = "main"
+deps = ["Colors", "CoordinateTransformations", "DataAugmentation", "ImageFiltering", "ImageTransformations", "LinearAlgebra", "OffsetArrays", "StaticArrays"]
+git-tree-sha1 = "1c9e3cc9212013f30f5a5e0c31ce0007bd4fa383"
+repo-rev = "v0.0.2"
 repo-url = "git@github.com:cirobr/LibDataAug.jl.git"
 uuid = "8ce57647-ee5c-43be-a4d7-4c390306d9e9"
-version = "0.0.1-DEV"
+version = "0.0.2"
 
 [[deps.LibFluxML]]
 deps = ["Flux", "ImageCore", "JLD2", "ProgressBars", "Statistics"]

@@ -56,8 +56,8 @@ using LibFluxML
 using PreprocessingImages; p=PreprocessingImages
 using LibDataAug
 import LibDataAug: apply_data_augmentation
-include("photometric.jl")
-include("perspective.jl")
+# include("photometric.jl")
+# include("perspective.jl")
 using PascalVocTools; const pv=PascalVocTools
 using LibCUDA
 
