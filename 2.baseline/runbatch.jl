@@ -9,21 +9,15 @@ Template for executing multiple scripts in series.
 ### arguments
 envpath       = "../"
 cudadevice    = 1
-epochs        = 500
-minibatchsize = 6
-accum_steps   = 2
-debugflag     = false
+epochs        = 1 #500
+minibatchsize = 1
+accum_steps   = 1
+debugflag     = true
 
 
 ### projects
 scripts = [
-    # "run_a.jl",
-    # "run_b.jl",            ### best baseline model, iou_loss, lr=2e-3 ###
-    # "run_c.jl",
-    # "focal_2e-3.jl",       #1: load baseline, focal loss, lr=2e-3
-    # "dfl_2e-3.jl",         #2: load #1, focal_weight=1.0, dice_weight=0.2, lr=2e-3
-    # "dfl_2e-3_part2.jl",   #3: load #2, focal_weight=1.0, dice_weight=0.2, lr=2e-3
-    "tversky.jl",   #4 load #3, beta=0.7, lr=2e-3
+    "deeplab_ce_aug.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
