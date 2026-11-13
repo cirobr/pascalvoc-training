@@ -23,6 +23,7 @@ scripts = [
     # "gdl.jl",     # not working at all
     # "cedice.jl",
     # "focal.jl",
+    "dice_aug.jl",   # same as dice.jl + augmentation strategy
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 

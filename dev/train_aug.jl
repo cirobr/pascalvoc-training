@@ -1,6 +1,6 @@
 """
 Author: cirobr@GitHub
-Date: 12-Nov-2026
+Date: 13-Nov-2026
 
 Template for training vision models.
 """
@@ -9,13 +9,13 @@ Template for training vision models.
 cd(@__DIR__)
 
 ### arguments
-envpath     = "./"
+envpath     = "../"
 cudadevice  = 0
-epochs      = 1 #500
+epochs      = 500
 train_batch = 4
 accum_steps = 4
 valid_batch = train_batch * accum_steps
-debugflag   = false
+debugflag   = true
 
 
 ### libs
@@ -48,7 +48,7 @@ using JLD2
 using TensorBoardLogger
 using FLoops
 using Printf
-using ProgressBars
+using ProgressBars; pb=ProgressBars
 import Statistics: mean, minimum, maximum, norm, std, median
 
 # private libs
@@ -56,8 +56,6 @@ using LibFluxML
 using PreprocessingImages; p=PreprocessingImages
 using LibDataAug
 import LibDataAug: apply_data_augmentation
-# include("photometric.jl")
-# include("perspective.jl")
 using PascalVocTools; const pv=PascalVocTools
 using LibCUDA
 
@@ -127,32 +125,22 @@ class_crop = ClassCentricCrop(
       crop = crop_size,
 )
 
-# intensity_trainpipe =
-#       Maybe(AdjustBrightness(0.15), 0.8) |>
-#       Maybe(AdjustContrast(0.15), 0.8)
-
-# geometric_trainpipe =
-#       Maybe(FlipX{2}(), 0.5) |>
-#       Maybe(Rotate(15), 0.5) |>
-#       OneOf([CenterResizeCrop(framesize), random_crop, class_crop], [0.1, 0.1, 0.8])
-      # CenterCrop(framesize)
-
 intensity_trainpipe =
       Maybe(AdjustBrightness(0.4), 0.8) |>
       Maybe(AdjustContrast(0.4), 0.8) |>
       Maybe(AdjustSaturation(0.4), 0.8) |>   # new - pass
       Maybe(AdjustHue(0.15), 0.5) |>         # new - pass
       Maybe(Grayscale(), 0.1) |>             # new - pass
-      # Maybe(Posterize(6), 0.1) |>          # optional, not yet implemented
-      # Maybe(Solarize(0.5), 0.1) |>         # optional, not yet implemented
-      # Maybe(AdjustSharpness(2.0), 0.3) |>  # optional, not yet implemented
+      Maybe(Posterize(6), 0.1) |>            # new - pass
+      Maybe(Solarize(0.5), 0.1) |>           # new - pass
+      Maybe(AdjustSharpness(2.0), 0.3) |>    # new - pass
       Maybe(GaussianBlur((0.1, 2.0)), 0.3)   # new - pass
 
 geometric_trainpipe =
       Maybe(FlipX{2}(), 0.5) |>
       Maybe(Rotate(15), 0.5) |>
       Maybe(WarpAffine(0.1), 0.5) |>         # closest to RandomAffine - pass
-      Maybe(RandomPerspective(0.2), 0.5) |>  ### new
+      Maybe(RandomPerspective(0.2), 0.5) |>  # new - pass
       OneOf(
             [CenterResizeCrop(framesize), random_crop, class_crop],
             [0.15, 0.15, 0.70]
@@ -189,8 +177,8 @@ N = size(df, 1)
 train_idx, val_idx = MLUtils.splitobs(1:N, at=0.7, shuffle=true)
 dftrain = df[train_idx, :]
 dfvalid = df[val_idx, :]
-dftrain = first(dftrain, 100)
-dfvalid = first(dfvalid, 50)
+# dftrain = first(dftrain, 100)
+# dfvalid = first(dfvalid, 50)
 # @warn "train/valid split: $(size(dftrain,1)) train, $(size(dfvalid,1)) valid"
 
 # debug mode
@@ -214,7 +202,7 @@ Xs = Array{Float32,4}(undef, (framesize...,C_in,Ntrain))
 # img = get_image(expanduser(dftrain.X[1]); colorflag=colorflag)   # dummy image
 ys = Array{Bool,4}(undef, (framesize...,C_out,Ntrain))
 
-FLoops.@floop for i in 1:Ntrain
+FLoops.@floop for i in pb.ProgressBar(1:Ntrain)
       img  = get_image(expanduser(dftrain.X[i]); colorflag=colorflag)
       mask = get_mask(expanduser(dftrain.y[i]))
       
