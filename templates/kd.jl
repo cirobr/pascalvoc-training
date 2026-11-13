@@ -1,6 +1,6 @@
 """
 Author: cirobr@GitHub
-Date: 10-Nov-2026
+Date: 13-Nov-2026
 
 Template for kd vision models.
 """
@@ -47,9 +47,8 @@ using Random
 using CSV
 using JLD2
 using TensorBoardLogger
-using FLoops
 using Printf
-using ProgressBars
+using ProgressBars; pb=ProgressBars
 import Statistics: mean, minimum, maximum, norm, std, median
 
 # private libs
@@ -131,17 +130,26 @@ class_crop = ClassCentricCrop(
 )
 
 intensity_trainpipe =
-      Maybe(AdjustBrightness(0.15), 0.8) |>
-      Maybe(AdjustContrast(0.15), 0.8)
-
+      Maybe(AdjustBrightness(0.4), 0.8) |>
+      Maybe(AdjustContrast(0.4), 0.8) |>
+      Maybe(AdjustSaturation(0.4), 0.8) |>   # new - pass
+      Maybe(AdjustHue(0.15), 0.5) |>         # new - pass
+      Maybe(Grayscale(), 0.1) |>             # new - pass
+      Maybe(Posterize(6), 0.1) |>            # new - pass
+      Maybe(Solarize(0.5), 0.1) |>           # new - pass
+      Maybe(AdjustSharpness(2.0), 0.3) |>    # new - pass
+      Maybe(GaussianBlur((0.1, 2.0)), 0.3)   # new - pass
 geometric_trainpipe =
       Maybe(FlipX{2}(), 0.5) |>
       Maybe(Rotate(15), 0.5) |>
-      OneOf([CenterResizeCrop(framesize), random_crop, class_crop], [0.1, 0.1, 0.8])
-      # CenterCrop(framesize)
+      Maybe(WarpAffine(0.1), 0.5) |>         # closest to RandomAffine - pass
+      Maybe(RandomPerspective(0.2), 0.5) |>  # new - pass
+      OneOf(
+            [CenterResizeCrop(framesize), random_crop, class_crop],
+            [0.15, 0.15, 0.70]
+      )
 
 intensity_validpipe = Identity()
-
 geometric_validpipe = CenterCrop(framesize)
 @info "environment OK"
 
@@ -196,7 +204,7 @@ Nvalid = size(dfvalid, 1)
 Xs = Array{Float32,4}(undef, (framesize...,C_in,Ntrain))
 # ys = Array{Bool,4}(undef, (framesize...,C_out,Ntrain))
 
-FLoops.@floop for i in 1:Ntrain
+Threads.@threads for i in pb.ProgressBar(1:Ntrain)
       img  = get_image(expanduser(dftrain.X[i]); colorflag=colorflag)
       # mask = get_mask(expanduser(dftrain.y[i]))
       
