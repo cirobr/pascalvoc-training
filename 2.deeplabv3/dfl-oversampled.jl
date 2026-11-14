@@ -114,18 +114,6 @@ function convert_mask_to_tensor(mask)
             Bool
 end
 
-# ------------------------------------------------------------------
-# 1. Build a per-image class label (rarest foreground class present)
-# ------------------------------------------------------------------
-function rarest_class(mask_path; background=0, void=255)
-    mask = get_mask(mask_path)               # your existing function → Int matrix
-    counts = countmap(mask)
-    delete!(counts, background)
-    delete!(counts, void)
-    isempty(counts) && return background     # pure background image
-    return argmin(counts)                    # class with fewest pixels
-end
-
 # images augmentation
 const short_sides = 450:650
 const crop_size = framesize[1]
@@ -196,11 +184,24 @@ dfvalid = df[val_idx, :]
 
 
 ### oversampling
-image_classes = [rarest_class(p) for p in dftrain.y]
+# ------------------------------------------------------------------
+# 1. Build a per-image class label (rarest foreground class present)
+# ------------------------------------------------------------------
+function rarest_class(mask_path; background=0, void=255)
+    mask = get_mask(mask_path)               # your existing function → Int matrix
+    counts = countmap(mask)
+    delete!(counts, background)
+    delete!(counts, void)
+    isempty(counts) && return background     # pure background image
+    return argmin(counts)                    # class with fewest pixels
+end
+
+image_classes = [rarest_class(expanduser(p)) for p in dftrain.y]
 
 # fraction=0.4 → every class reaches at least 40 % of the size of the largest class
-dfbal, classes_bal = oversample(dftrain, image_classes; fraction=0.4, shuffle=true)
-@info "Original size: $(nrow(dftrain)), balanced size: $(nrow(df_bal))"
+dfview, classes_view = oversample(dftrain, image_classes; fraction=0.4, shuffle=true)
+dfbal = getobs(dfview)
+@info "Original size: $(nrow(dftrain)), balanced size: $(nrow(dfbal))"
 
 
 # debug mode
@@ -211,6 +212,7 @@ if debugflag
       accum_steps = 1
       valid_batch = 1
       epochs  = 2
+      @warn "Debug is ON"
 end
 # end debug mode
 

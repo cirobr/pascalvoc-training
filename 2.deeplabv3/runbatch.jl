@@ -19,6 +19,7 @@ debugflag     = false
 scripts = [
     # "ce.jl",
     # "dfl.jl",
+    "dfl-oversampled.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 

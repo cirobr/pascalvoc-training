@@ -191,6 +191,7 @@ if debugflag
       accum_steps = 1
       valid_batch = 1
       epochs  = 2
+      @warn "Debug is ON"
 end
 # end debug mode
 
