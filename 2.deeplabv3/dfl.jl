@@ -12,8 +12,8 @@ cd(@__DIR__)
 # envpath       = "../"
 # cudadevice    = 1
 # epochs        = 50
-# train_batch   = 4
-# accum_steps   = 4
+# train_batch   = 3
+# accum_steps   = 5
 # valid_batch   = train_batch * accum_steps
 # debugflag     = false
 
@@ -58,6 +58,7 @@ using LibDataAug
 import LibDataAug: apply_data_augmentation
 using PascalVocTools; const pv=PascalVocTools
 using LibCUDA
+include("../functions/diagnostics.jl")
 
 
 # dataset constants
@@ -114,7 +115,7 @@ end
 
 
 # images augmentation
-const short_sides = 400:600
+const short_sides = 450:650
 const crop_size = framesize[1]
 
 random_crop = RandomCentricCrop(
@@ -141,11 +142,11 @@ geometric_trainpipe =
       Maybe(Rotate(15), 0.5) |>
       Maybe(WarpAffine(0.1), 0.5) |>         # closest to RandomAffine - pass
       Maybe(RandomPerspective(0.2), 0.5) |>  # new - pass
-      # CenterCrop(framesize)
       OneOf(
             [Identity(), random_crop, class_crop],
             [0.2, 0.2, 0.6]
-      )
+      ) |>
+      CenterCrop(framesize)
 
 intensity_validpipe = Identity()
 geometric_validpipe = CenterCrop(framesize)
@@ -509,6 +510,23 @@ for (eta, epoch) in zip(scheduler, 1:epochs)
                   class_name = "Class $(classnrs[i])"
                   @info "Metric/Validation/IoU/$class_name" metric=loss log_step_increment=0
             end
+      end
+
+      # diagnostics
+      if epoch % 5 == 0 || epoch == 1
+            pred_counts, present_counts, cond_ious = diagnostic_batch!(model, valid_loader; device=dev)
+
+            @info "=== Diagnostic epoch $epoch ==="
+            println("Predicted pixel counts:")
+            for c in 1:length(pred_counts)
+                  @printf "  class %2d: %8d\n" c-1 pred_counts[c]
+            end
+
+            println("\nImages containing class / conditional IoU:")
+            for c in 1:length(present_counts)
+                  @printf "  class %2d: %4d images, cond IoU = %.4f\n" c-1 present_counts[c] cond_ious[c]
+            end
+            println()
       end
 
       # model checkpoint & early stopping

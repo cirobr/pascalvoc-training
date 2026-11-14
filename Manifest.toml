@@ -2,7 +2,7 @@
 
 julia_version = "1.13.3"
 manifest_format = "2.1"
-project_hash = "437c1f4293e8850bd509644914b1d29f7425935e"
+project_hash = "fdedf085d047c77399ec5d8e383c970fbd7c441c"
 
 [[deps.ADTypes]]
 deps = ["PrecompileTools"]
@@ -1494,11 +1494,11 @@ version = "0.0.3"
 
 [[deps.LibFluxML]]
 deps = ["Flux", "ImageCore", "JLD2", "ProgressBars", "Statistics"]
-git-tree-sha1 = "a2397c429fd68c172017114c803c3a740cec4f9d"
-repo-rev = "main"
+git-tree-sha1 = "cd66128e20de63fa1d51e6132290b73ae15db403"
+repo-rev = "v0.0.68"
 repo-url = "git@github.com:cirobr/LibFluxML.jl.git"
 uuid = "06a27b3f-e48e-4378-94d6-12b963ed26a7"
-version = "0.0.67"
+version = "0.0.68"
 
 [[deps.LibGit2]]
 deps = ["LibGit2_jll", "NetworkOptions", "Printf", "SHA"]

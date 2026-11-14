@@ -114,7 +114,7 @@ end
 
 
 # images augmentation
-const short_sides = 400:600
+const short_sides = 450:650
 const crop_size = framesize[1]
 
 random_crop = RandomCentricCrop(
@@ -141,11 +141,11 @@ geometric_trainpipe =
       Maybe(Rotate(15), 0.5) |>
       Maybe(WarpAffine(0.1), 0.5) |>         # closest to RandomAffine - pass
       Maybe(RandomPerspective(0.2), 0.5) |>  # new - pass
-      # CenterCrop(framesize)
       OneOf(
             [Identity(), random_crop, class_crop],
             [0.2, 0.2, 0.6]
-      )
+      ) |>
+      CenterCrop(framesize)
 
 intensity_validpipe = Identity()
 geometric_validpipe = CenterCrop(framesize)
