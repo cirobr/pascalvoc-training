@@ -160,10 +160,10 @@ version = "7.30.2"
 
 [[deps.ArrayLayouts]]
 deps = ["FillArrays", "LinearAlgebra", "StaticArrays"]
-git-tree-sha1 = "8fde25d92e917350570f1203e47c933d16b77dce"
+git-tree-sha1 = "1e73ed09dfb0df4de9b3e41e7ce92d39a51f69cb"
 registries = "General"
 uuid = "4c555306-a7a7-4459-81d9-ec55ddd5c99a"
-version = "1.16.0"
+version = "1.16.1"
 weakdeps = ["SparseArrays"]
 
     [deps.ArrayLayouts.extensions]
@@ -471,10 +471,10 @@ weakdeps = ["StyledStrings"]
 
 [[deps.ColorVectorSpace]]
 deps = ["ColorTypes", "FixedPointNumbers", "LinearAlgebra", "Requires", "Statistics", "TensorCore"]
-git-tree-sha1 = "96fce5c80e0834e96ab6d24fb384fd945c9cb2d4"
+git-tree-sha1 = "1b26bfe1e23b0fbf350ef5e37a8608caeeafd9de"
 registries = "General"
 uuid = "c3611d14-8923-5661-9e6a-0046d554d3a4"
-version = "0.11.2"
+version = "0.11.3"
 weakdeps = ["SpecialFunctions"]
 
     [deps.ColorVectorSpace.extensions]
@@ -666,10 +666,10 @@ version = "1.1.0"
 
 [[deps.DiffRules]]
 deps = ["IrrationalConstants", "LogExpFunctions", "NaNMath", "Random", "SpecialFunctions"]
-git-tree-sha1 = "7ab8388b721794863a6e809a2436e639832ee74a"
+git-tree-sha1 = "6a4a3d254ca35fe9b35e456c66589228514d6a01"
 registries = "General"
 uuid = "b552c78f-8df3-52c6-915a-8e097449b14b"
-version = "1.17.1"
+version = "1.18.0"
 
 [[deps.Distances]]
 deps = ["LinearAlgebra", "Statistics", "StatsAPI"]
@@ -810,10 +810,10 @@ version = "1.11.0"
 
 [[deps.FillArrays]]
 deps = ["LinearAlgebra"]
-git-tree-sha1 = "831f86fde78ab7f6470d6ba4d1161a11fb6b4ec0"
+git-tree-sha1 = "889174c6aef868dc0e5f083dd6d94b4d3b786d7f"
 registries = "General"
 uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
-version = "1.18.2"
+version = "1.19.0"
 weakdeps = ["PDMats", "SparseArrays", "StaticArrays", "Statistics"]
 
     [deps.FillArrays.extensions]
@@ -1438,10 +1438,10 @@ version = "0.1.17"
 
 [[deps.LazyArrays]]
 deps = ["ArrayLayouts", "FillArrays", "LinearAlgebra", "MacroTools", "SparseArrays"]
-git-tree-sha1 = "1eacd657b15ab8b86aa943630f0b72047cb73115"
+git-tree-sha1 = "e41c02b2c651e948735fa99388cce70ddb71c06b"
 registries = "General"
 uuid = "5078a376-72f3-5289-bfd5-ec5146d43c02"
-version = "2.14.7"
+version = "2.14.8"
 
     [deps.LazyArrays.extensions]
     LazyArraysBandedMatricesExt = "BandedMatrices"
@@ -1615,10 +1615,10 @@ version = "1.1.0"
 
 [[deps.MLDataDevices]]
 deps = ["Adapt", "Functors", "Preferences", "Random", "SciMLPublic"]
-git-tree-sha1 = "0d8704d7609a51d6f2717b5e26762dbe6e2bec7c"
+git-tree-sha1 = "acac644e9ca46c512b843723bb55fbed9cc0fccb"
 registries = "General"
 uuid = "7e8f7934-dd98-4c1a-8fe8-92b47a384d40"
-version = "1.18.0"
+version = "1.18.1"
 
     [deps.MLDataDevices.extensions]
     AMDGPUExt = "AMDGPU"
@@ -1891,10 +1891,10 @@ version = "0.3.3"
 
 [[deps.OpenEXR_jll]]
 deps = ["Artifacts", "Imath_jll", "JLLWrappers", "Libdl", "OpenJPH_jll", "Zlib_jll", "Zstd_jll", "libdeflate_jll"]
-git-tree-sha1 = "afa66dc1246b28b68600d053715e00a379268980"
+git-tree-sha1 = "db5f91397090eab5dc6899a61f20d54505b49995"
 registries = "General"
 uuid = "18a262bb-aa17-5467-a713-aee519bc75cb"
-version = "3.5.3+0"
+version = "3.5.4+0"
 
 [[deps.OpenJPH_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libtiff_jll"]
@@ -2503,10 +2503,10 @@ weakdeps = ["OffsetArrays", "StaticArrays"]
 
 [[deps.StaticArrays]]
 deps = ["LinearAlgebra", "PrecompileTools", "Random", "StaticArraysCore"]
-git-tree-sha1 = "8a8a52f887f38d44014e24ee46b8a7311c625f6d"
+git-tree-sha1 = "c8bf24c3f713c724e7bceaf9d0bb6729dbd3c8cc"
 registries = "General"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.9.24"
+version = "1.9.25"
 weakdeps = ["ChainRulesCore", "Statistics"]
 
     [deps.StaticArrays.extensions]

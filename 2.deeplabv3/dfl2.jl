@@ -64,8 +64,7 @@ include("../functions/diagnostics.jl")
 
 # dataset constants
 const imagesize = (500,500)   # original size
-# const framesize = (256,256)   # cropped size
-const framesize = imagesize
+const framesize = (384,384)   # cropped size
 const classnrs  = pv.class_numbers   # 0:20
 const C_out = length(classnrs)
 C_in = 3
@@ -115,7 +114,7 @@ function convert_mask_to_tensor(mask)
 end
 
 # images augmentation
-const short_sides = 450:650
+const short_sides = 320:512
 const crop_size = framesize[1]
 
 random_crop = RandomCentricCrop(
@@ -360,7 +359,7 @@ loss = testfn(model, X, y)   # arguments (model, X, y) - follows Flux.train! >= 
 # loss functions
 lossfn(yhat, y) = LibFluxML.dfl(yhat, y;
                         logits=true,
-                        include_background=false,
+                        include_background=true,
                         exclude_voids=true,
                         gamma=2,
                         dice_weight=1.0,
