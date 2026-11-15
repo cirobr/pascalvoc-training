@@ -8,18 +8,19 @@ Template for executing multiple scripts in series.
 ### arguments
 envpath       = "../"
 cudadevice    = 1
-epochs        = 50
+epochs        = 150
 train_batch   = 3
 accum_steps   = 5
 valid_batch   = train_batch * accum_steps
-debugflag     = false
+debugflag     = true
 
 
 ### projects
 scripts = [
     # "ce.jl",
     # "dfl.jl",
-    "dfl-oversampled.jl",
+    # "dfl-oversampled.jl",
+    "dfl2.jl"
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
