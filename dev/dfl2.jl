@@ -9,13 +9,13 @@ Template for training vision models.
 cd(@__DIR__)
 
 ### arguments
-envpath     = "../"
-cudadevice  = 0
-epochs      = 500
-train_batch = 4
-accum_steps = 4
-valid_batch = train_batch * accum_steps
-debugflag   = true
+# envpath       = "../"
+# cudadevice    = 1
+# epochs        = 50
+# train_batch   = 3
+# accum_steps   = 5
+# valid_batch   = train_batch * accum_steps
+# debugflag     = false
 
 
 ### libs
@@ -34,7 +34,7 @@ else
       @warn "gpu disabled: using cpu."
 end
 
-using TinyMachines
+# using TinyMachines
 using Images
 using DataAugmentation
 using OffsetArrays
@@ -46,23 +46,25 @@ using Random
 using CSV
 using JLD2
 using TensorBoardLogger
-using FLoops
 using Printf
 using ProgressBars; pb=ProgressBars
 import Statistics: mean, minimum, maximum, norm, std, median
+import StatsBase: countmap
 
 # private libs
+using DeepLab
 using LibFluxML
 using PreprocessingImages; p=PreprocessingImages
 using LibDataAug
 import LibDataAug: apply_data_augmentation
 using PascalVocTools; const pv=PascalVocTools
 using LibCUDA
+include("../functions/diagnostics.jl")
 
 
 # dataset constants
 const imagesize = (500,500)   # original size
-const framesize = (256,256)   # cropped size
+const framesize = (128,128)   # cropped size
 const classnrs  = pv.class_numbers   # 0:20
 const C_out = length(classnrs)
 C_in = 3
@@ -111,9 +113,8 @@ function convert_mask_to_tensor(mask)
             Bool
 end
 
-
 # images augmentation
-const short_sides = 320:500
+const short_sides = 110:140 #320:512
 const crop_size = framesize[1]
 
 random_crop = RandomCentricCrop(
@@ -135,19 +136,18 @@ intensity_trainpipe =
       Maybe(Solarize(0.5), 0.1) |>           # new - pass
       Maybe(AdjustSharpness(2.0), 0.3) |>    # new - pass
       Maybe(GaussianBlur((0.1, 2.0)), 0.3)   # new - pass
-
 geometric_trainpipe =
       Maybe(FlipX{2}(), 0.5) |>
       Maybe(Rotate(15), 0.5) |>
       Maybe(WarpAffine(0.1), 0.5) |>         # closest to RandomAffine - pass
       Maybe(RandomPerspective(0.2), 0.5) |>  # new - pass
       OneOf(
-            [CenterResizeCrop(framesize), random_crop, class_crop],
-            [0.15, 0.15, 0.70]
-      )
+            [Identity(), random_crop, class_crop],
+            [0.2, 0.2, 0.6]
+      ) |>
+      CenterCrop(framesize)
 
 intensity_validpipe = Identity()
-
 geometric_validpipe = CenterCrop(framesize)
 @info "environment OK"
 
@@ -177,50 +177,73 @@ N = size(df, 1)
 train_idx, val_idx = MLUtils.splitobs(1:N, at=0.7, shuffle=true)
 dftrain = df[train_idx, :]
 dfvalid = df[val_idx, :]
-# dftrain = first(dftrain, 100)
-# dfvalid = first(dfvalid, 50)
+# dftrain = first(dftrain, 50)
+# dfvalid = first(dfvalid, 20)
 # @warn "train/valid split: $(size(dftrain,1)) train, $(size(dfvalid,1)) valid"
+
+
+### oversampling
+# ------------------------------------------------------------------
+# 1. Build a per-image class label (rarest foreground class present)
+# ------------------------------------------------------------------
+function rarest_class(mask_path; background=0, void=255)
+    mask = get_mask(mask_path)               # your existing function → Int matrix
+    counts = countmap(mask)
+    delete!(counts, background)
+    delete!(counts, void)
+    isempty(counts) && return background     # pure background image
+    return argmin(counts)                    # class with fewest pixels
+end
+
+image_classes = [rarest_class(expanduser(p)) for p in dftrain.y]
+
+# fraction=0.4 → every class reaches at least 40 % of the size of the largest class
+dfview, classes_view = oversample(dftrain, image_classes; fraction=0.4, shuffle=true)
+dfbal = getobs(dfview)
+@info "Original size: $(nrow(dftrain)), balanced size: $(nrow(dfbal))"
+
 
 # debug mode
 if debugflag
-      dftrain = first(dftrain, 3)
+      dfbal = first(dfbal, 3)
       dfvalid = first(dfvalid, 2)
       train_batch = 1
       accum_steps = 1
       valid_batch = 1
       epochs  = 2
+      @warn "Debug is ON"
 end
 # end debug mode
 
-Ntrain = size(dftrain, 1)
+Ntrain = size(dfbal, 1)
 Nvalid = size(dfvalid, 1)
 @info "dataset OK"
 
 # calculate normalization parameters and class frequencies
 @info "calculating parameters ..."
-Xs = Array{Float32,4}(undef, (framesize...,C_in,Ntrain))
-# img = get_image(expanduser(dftrain.X[1]); colorflag=colorflag)   # dummy image
+# Xs = Array{Float32,4}(undef, (framesize...,C_in,Ntrain))
+img = get_image(expanduser(dfbal.X[1]); colorflag=colorflag)   # dummy image
 ys = Array{Bool,4}(undef, (framesize...,C_out,Ntrain))
 
-FLoops.@floop for i in pb.ProgressBar(1:Ntrain)
-      img  = get_image(expanduser(dftrain.X[i]); colorflag=colorflag)
-      mask = get_mask(expanduser(dftrain.y[i]))
+Threads.@threads for i in pb.ProgressBar(1:Ntrain)
+      # img  = get_image(expanduser(dfbal.X[i]); colorflag=colorflag)
+      mask = get_mask(expanduser(dfbal.y[i]))
       
-      img, mask = apply_data_augmentation(img, mask;
+      _, mask = apply_data_augmentation(img, mask;
                         intensity_tfm = intensity_validpipe,
                         geometric_tfm = geometric_validpipe,
       )
 
-      Xs[:,:,:,i] = convert_image_to_tensor(img)
+      # Xs[:,:,:,i] = convert_image_to_tensor(img)
       ys[:,:,:,i] = convert_mask_to_tensor(mask)
 end
 
 # normalization statistics
-means, stds = p.get_normalization_params(Xs)
-means = means |> x->trunc.(x,digits=3) .|> Float32
-stds  = stds  |> x->trunc.(x,digits=3) .|> Float32
-# means = imagenet_means
-# stds  = imagenet_stds
+# means, stds = p.get_normalization_params(Xs)
+# means = means |> x->trunc.(x,digits=3) .|> Float32
+# stds  = stds  |> x->trunc.(x,digits=3) .|> Float32
+means = imagenet_means
+stds  = imagenet_stds
 
 @show means
 @show stds
@@ -274,7 +297,7 @@ function Flux.getobs(d::PascalVocDataset, idx::AbstractVector{<:Integer})
     [Flux.getobs(d, i) for i in idx]
 end
 
-train_dataset = PascalVocDataset(dftrain,
+train_dataset = PascalVocDataset(dfbal,
                               intensity_trainpipe,
                               geometric_trainpipe,
 )
@@ -304,7 +327,14 @@ valid_loader = Flux.DataLoader(valid_dataset,
 
 
 ### model
-modelcpu = TinyMachines.UNet(C_in, C_out; activation=leakyrelu)
+model_state = Flux.state(bb32[1:end-1])
+Flux.loadmodel!(bb16[1:end-1], model_state)
+modelcpu = DeepLab.DeepLabV3(C_in, C_out;
+                              backbone=bb16,
+                              use_aux=true,
+                              aux_index=4,
+                              aspp_rates=(6,12,18),
+)
 # fpfn = "../2.baseline/models/dfl_2e-3_part2/bestmodel.jld2"
 # LibFluxML.loadModelState!(fpfn, modelcpu)
 # @info "model loaded from $fpfn"
@@ -329,18 +359,23 @@ loss = testfn(model, X, y)   # arguments (model, X, y) - follows Flux.train! >= 
 # loss functions
 lossfn(yhat, y) = LibFluxML.dfl(yhat, y;
                         logits=true,
-                        include_background=false,
+                        include_background=true,
                         exclude_voids=true,
-                        gamma=2.0,
+                        gamma=2,
+                        dice_weight=1.0,
                         focal_weight=1.0,
-                        dice_weight =1.0,
-                        weights=train_weights,
+                        # weights=train_weights,
                         reduction=:mean,
                         device=dev,
 )
-function trainfn(model, X, y)
-      yhat = model(X)
-      return lossfn(yhat, y)
+function trainfn(model,X,y)
+      if isnothing(model.aux_classifier)
+            yhat = model(X)
+            return lossfn(yhat, y)
+      else
+            yhat, aux = model(X, Val(:aux))
+            return lossfn(yhat, y) + 0.4f0 * lossfn(aux, y)
+      end
 end
 
 validfn(yhat, y) = LibFluxML.iou_loss(yhat, y;
@@ -358,7 +393,7 @@ lr  = 5e-5
 lr2 = 1e-4
 lr3 = 1e-5
 β   = (0.9, 0.999)
-λ   = 5e-5   # or 1e-4
+λ   = 1e-4    # 5e-5 or 1e-4
 # cn = 1.0    # clip norm
 # cg = 1.0    # clip grad
 
@@ -371,7 +406,7 @@ opt = OptimiserChain(
 )
 # opt_mp = Optimisers.MixedPrecision(Float16, opt)
 optimizerState = Flux.setup(opt, model)
-# Flux.freeze!(optimizerState.backbone_head)
+Flux.freeze!(optimizerState.backbone_head)
 
 T1 = 8
 T2 = 100
@@ -444,6 +479,7 @@ validlosses = []
 for (eta, epoch) in zip(scheduler, 1:epochs)
       LibCUDA.garbage_collection()
       # LibCUDA.cleangpu()
+      if epoch == 21   Flux.thaw!(optimizerState)   end
 
       @printf "*** Epoch %d/%d ***\n" epoch epochs
       Flux.adjust!(optimizerState, eta)
@@ -496,6 +532,23 @@ for (eta, epoch) in zip(scheduler, 1:epochs)
                   class_name = "Class $(classnrs[i])"
                   @info "Metric/Validation/IoU/$class_name" metric=loss log_step_increment=0
             end
+      end
+
+      # diagnostics
+      if epoch % 5 == 0 || epoch == 1
+            pred_counts, present_counts, cond_ious = diagnostic_batch!(model, valid_loader; device=dev)
+
+            @info "=== Diagnostic epoch $epoch ==="
+            println("Predicted pixel counts:")
+            for c in 1:length(pred_counts)
+                  @printf "  class %2d: %8d\n" c-1 pred_counts[c]
+            end
+
+            println("\nImages containing class / conditional IoU:")
+            for c in 1:length(present_counts)
+                  @printf "  class %2d: %4d images, cond IoU = %.4f\n" c-1 present_counts[c] cond_ious[c]
+            end
+            println()
       end
 
       # model checkpoint & early stopping
