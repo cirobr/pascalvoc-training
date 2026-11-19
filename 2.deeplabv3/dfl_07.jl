@@ -1,6 +1,6 @@
 """
 Author: cirobr@GitHub
-Date: 13-Nov-2026
+Date: 19-Nov-2026
 
 Template for training vision models.
 """
@@ -9,13 +9,13 @@ Template for training vision models.
 cd(@__DIR__)
 
 ### arguments
-# envpath       = "../"
-# cudadevice    = 1
-# epochs        = 50
-# train_batch   = 3
-# accum_steps   = 5
-# valid_batch   = train_batch * accum_steps
-# debugflag     = false
+# envpath     = "../"
+# cudadevice  = 0
+# epochs      = 1 #150
+# train_batch = 4
+# accum_steps = 4
+# valid_batch = train_batch * accum_steps
+# debugflag   = false
 
 
 ### libs
@@ -49,6 +49,7 @@ using TensorBoardLogger
 using Printf
 using ProgressBars; pb=ProgressBars
 import Statistics: mean, minimum, maximum, norm, std, median
+import StatsBase: countmap
 
 # private libs
 using DeepLab
@@ -58,13 +59,11 @@ using LibDataAug
 import LibDataAug: apply_data_augmentation
 using PascalVocTools; const pv=PascalVocTools
 using LibCUDA
-include("../functions/diagnostics.jl")
 
 
 # dataset constants
 const imagesize = (500,500)   # original size
-# const framesize = (256,256)   # cropped size
-const framesize = imagesize
+const framesize = (256,256)   # cropped size
 const classnrs  = pv.class_numbers   # 0:20
 const C_out = length(classnrs)
 C_in = 3
@@ -113,9 +112,21 @@ function convert_mask_to_tensor(mask)
             Bool
 end
 
+# ------------------------------------------------------------------
+# 1. Build a per-image class label (rarest foreground class present)
+# ------------------------------------------------------------------
+function rarest_class(mask_path; background=0, void=255)
+    mask = get_mask(mask_path)               # your existing function → Int matrix
+    counts = countmap(mask)
+    delete!(counts, background)
+    delete!(counts, void)
+    isempty(counts) && return background     # pure background image
+    return argmin(counts)                    # class with fewest pixels
+end
+
 
 # images augmentation
-const short_sides = 450:650
+const short_sides = 320:500
 const crop_size = framesize[1]
 
 random_crop = RandomCentricCrop(
@@ -143,10 +154,9 @@ geometric_trainpipe =
       Maybe(WarpAffine(0.1), 0.5) |>         # closest to RandomAffine - pass
       Maybe(RandomPerspective(0.2), 0.5) |>  # new - pass
       OneOf(
-            [Identity(), random_crop, class_crop],
-            [0.2, 0.2, 0.6]
-      ) |>
-      CenterCrop(framesize)
+            [CenterResizeCrop(framesize), random_crop, class_crop],
+            [0.15, 0.15, 0.70]
+      )
 
 intensity_validpipe = Identity()
 geometric_validpipe = CenterCrop(framesize)
@@ -178,45 +188,31 @@ N = size(df, 1)
 train_idx, val_idx = MLUtils.splitobs(1:N, at=0.7, shuffle=true)
 dftrain = df[train_idx, :]
 dfvalid = df[val_idx, :]
-# dftrain = first(dftrain, 50)
-# dfvalid = first(dfvalid, 20)
+# dftrain = first(dftrain, 100)
+# dfvalid = first(dfvalid, 50)
 # @warn "train/valid split: $(size(dftrain,1)) train, $(size(dfvalid,1)) valid"
-
-# debug mode
-if debugflag
-      dftrain = first(dftrain, 3)
-      dfvalid = first(dfvalid, 2)
-      train_batch = 1
-      accum_steps = 1
-      valid_batch = 1
-      epochs  = 2
-end
-# end debug mode
-
 Ntrain = size(dftrain, 1)
 Nvalid = size(dfvalid, 1)
-@info "dataset OK"
+@info "data frames OK"
 
-# calculate normalization parameters and class frequencies
-@info "calculating parameters ..."
-# Xs = Array{Float32,4}(undef, (framesize...,C_in,Ntrain))
-img = get_image(expanduser(dftrain.X[1]); colorflag=colorflag)   # dummy image
-ys = Array{Bool,4}(undef, (framesize...,C_out,Ntrain))
 
-Threads.@threads for i in pb.ProgressBar(1:Ntrain)
-      # img  = get_image(expanduser(dftrain.X[i]); colorflag=colorflag)
-      mask = get_mask(expanduser(dftrain.y[i]))
+### normalization statistics
+# normalization statistics are calculated over immutable dataset,
+# except for padding
+# @info "calculating normalization statistics ..."
+# Xs = Array{Float32,4}(undef, (imagesize...,C_in,Ntrain))
+# mask = rand(classnrs, imagesize) .|> Int16 # dummy mask
+
+# Threads.@threads for i in pb.ProgressBar(1:Ntrain)
+#       img = get_image(expanduser(dftrain.X[i]); colorflag=colorflag)
       
-      _, mask = apply_data_augmentation(img, mask;
-                        intensity_tfm = intensity_validpipe,
-                        geometric_tfm = geometric_validpipe,
-      )
+#       img, _= apply_data_augmentation(img, mask;
+#                         intensity_tfm = Identity(),
+#                         geometric_tfm = CenterCrop(imagesize),
+#       )
+#       Xs[:,:,:,i] = convert_image_to_tensor(img)
+# end
 
-      # Xs[:,:,:,i] = convert_image_to_tensor(img)
-      ys[:,:,:,i] = convert_mask_to_tensor(mask)
-end
-
-# normalization statistics
 # means, stds = p.get_normalization_params(Xs)
 # means = means |> x->trunc.(x,digits=3) .|> Float32
 # stds  = stds  |> x->trunc.(x,digits=3) .|> Float32
@@ -225,19 +221,72 @@ stds  = imagenet_stds
 
 @show means
 @show stds
-@info "normalization parameters OK"
+Xs = nothing
+@info "normalization statistics OK"
 
-# class frequencies and weights
-cs = LibFluxML.compute_class_counts(ys)
-cs = cs[2:end]   # ignore background class
+
+### re-sampling training set for regularization
+image_classes = [rarest_class(expanduser(p)) for p in dftrain.y]
+
+dfview, _ = oversample(dftrain, image_classes; fraction=0.7, shuffle=true)
+# dfview, _ = undersample(dftrain, image_classes; shuffle=true)
+dfbal = getobs(dfview)
+@info "Original size: $(nrow(dftrain)), balanced size: $(nrow(dfbal))"
+dftrain = dfbal
+dfbal = nothing
+
+Ntrain = size(dftrain, 1)
+Nvalid = size(dfvalid, 1)
+@info "data frames OK"
+
+
+# class frequencies are calculated over re-sampled training set
+@info "calculating class frequencies ..."
+ys = Array{Int16,3}(undef, (imagesize...,Ntrain))
+img = get_image(expanduser(dftrain.X[1]); colorflag=colorflag) # dummy image
+
+Threads.@threads for i in pb.ProgressBar(1:Ntrain)
+      mask = get_mask(expanduser(dftrain.y[i]))
+      
+      _, mask = apply_data_augmentation(img, mask;
+                        intensity_tfm = Identity(),
+                        geometric_tfm = CenterCrop(imagesize),
+      )
+      ys[:,:,i] = mask
+end
+
+cs = MLUtils.group_counts(ys) |> x->sort(collect(x))   # classes 0:20 + 255
+cs = cs[1:end-1]          # remove void class 255
+cs = [c[2] for c in cs]   # get only the counts
+@assert length(cs) == C_out || error("classes are not matching")
+
+cs = cs[2:end]   # remove background class 0
+@info "class frequencies: $cs"
+
+
+# loss weights are calculated over re-sampled training set
 median_weights, inverse_weights, inverse_squared_weights, inverse_class_weights =
       LibFluxML.compute_class_weights(cs)
-
 train_weights = median_weights .|> Float32 |> dev
+@info "min weights: $(minimum(cpu(train_weights))), max weights: $(maximum(cpu(train_weights)))"
 
-Xs = nothing
 ys = nothing
 @info "loss weights OK"
+
+
+# debug mode
+if debugflag
+      dftrain = first(dftrain, 3)
+      dfvalid = first(dfvalid, 2)
+      Ntrain  = size(dftrain, 1)
+      Nvalid  = size(dfvalid, 1)
+      train_batch = 1
+      accum_steps = 1
+      valid_batch = 1
+      epochs  = 2
+      @warn "Debug mode is ON"
+end
+# end debug mode
 
 
 # data loading
@@ -339,21 +388,16 @@ lossfn(yhat, y) = LibFluxML.dfl(yhat, y;
                         logits=true,
                         include_background=false,
                         exclude_voids=true,
-                        gamma=2,
-                        dice_weight=1.0,
+                        gamma=2.0,
                         focal_weight=1.0,
-                        # weights=train_weights,
+                        dice_weight =1.0,
+                        weights=train_weights,
                         reduction=:mean,
                         device=dev,
 )
-function trainfn(model,X,y)
-      if isnothing(model.aux_classifier)
-            yhat = model(X)
-            return lossfn(yhat, y)
-      else
-            yhat, aux = model(X, Val(:aux))
-            return lossfn(yhat, y) + 0.4f0 * lossfn(aux, y)
-      end
+function trainfn(model, X, y)
+      yhat = model(X)
+      return lossfn(yhat, y)
 end
 
 validfn(yhat, y) = LibFluxML.iou_loss(yhat, y;
@@ -371,7 +415,7 @@ lr  = 5e-5
 lr2 = 1e-4
 lr3 = 1e-5
 β   = (0.9, 0.999)
-λ   = 1e-4    # 5e-5 or 1e-4
+λ   = 5e-5   # or 1e-4
 # cn = 1.0    # clip norm
 # cg = 1.0    # clip grad
 
@@ -387,12 +431,12 @@ optimizerState = Flux.setup(opt, model)
 Flux.freeze!(optimizerState.backbone_head)
 
 T1 = 8
-T2 = 100
-T3 = 500 - (T1+T2)
+T2 = 150 - T1
+# T3 = 500 - (T1+T2)
 raising_part  = Triangle(l0=lr, l1=lr2, period=2*T1) # 1/2 period triangle
 cosine_part   = CosAnneal(l0=lr2, l1=lr3, period=T2, restart=false)
-constant_part = lr3
-scheduler = Sequence(raising_part => T1, cosine_part => T2, constant_part => T3)
+# constant_part = lr3
+scheduler = Sequence(raising_part => T1, cosine_part => T2)
 @info "optimizer OK"
 
 
@@ -431,6 +475,7 @@ Flux.train!(model, loader, optimizerState) do m, x, y
 end
 loader = nothing
 @info "warmup OK"
+# @assert false
 
 
 ###########################################
@@ -510,23 +555,6 @@ for (eta, epoch) in zip(scheduler, 1:epochs)
                   class_name = "Class $(classnrs[i])"
                   @info "Metric/Validation/IoU/$class_name" metric=loss log_step_increment=0
             end
-      end
-
-      # diagnostics
-      if epoch % 5 == 0 || epoch == 1
-            pred_counts, present_counts, cond_ious = diagnostic_batch!(model, valid_loader; device=dev)
-
-            @info "=== Diagnostic epoch $epoch ==="
-            println("Predicted pixel counts:")
-            for c in 1:length(pred_counts)
-                  @printf "  class %2d: %8d\n" c-1 pred_counts[c]
-            end
-
-            println("\nImages containing class / conditional IoU:")
-            for c in 1:length(present_counts)
-                  @printf "  class %2d: %4d images, cond IoU = %.4f\n" c-1 present_counts[c] cond_ious[c]
-            end
-            println()
       end
 
       # model checkpoint & early stopping

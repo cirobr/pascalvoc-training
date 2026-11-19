@@ -12,16 +12,15 @@ epochs        = 150
 train_batch   = 4
 accum_steps   = 4
 valid_batch   = train_batch * accum_steps
-debugflag     = false
+debugflag     = true
 
 
 ### projects
 scripts = [
-    # "ce.jl",
-    # "dfl.jl",
-    # "dfl-oversampled.jl",
-    # "dfl2.jl",
-    "dfl3.jl",
+    "dfl_04.jl",
+    "dfl_07.jl",
+    "dfl_10.jl",
+    "gdl_04.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
