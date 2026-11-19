@@ -63,7 +63,7 @@ using LibCUDA
 
 # dataset constants
 const imagesize = (500,500)   # original size
-const framesize = (256,256)   # cropped size
+const framesize = (384,384)   # cropped size
 const classnrs  = pv.class_numbers   # 0:20
 const C_out = length(classnrs)
 C_in = 3
@@ -126,7 +126,7 @@ end
 
 
 # images augmentation
-const short_sides = 320:500
+const short_sides = 320:512
 const crop_size = framesize[1]
 
 random_crop = RandomCentricCrop(
