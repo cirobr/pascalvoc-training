@@ -20,7 +20,8 @@ scripts = [
     # "ce.jl",
     # "dfl.jl",
     # "dfl-oversampled.jl",
-    "dfl2.jl"
+    # "dfl2.jl",
+    "dfl3.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
