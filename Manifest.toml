@@ -1,6 +1,6 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.13.3"
+julia_version = "1.13.4"
 manifest_format = "2.1"
 project_hash = "fdedf085d047c77399ec5d8e383c970fbd7c441c"
 
@@ -325,17 +325,17 @@ version = "6.5.1"
 
 [[deps.CUDA_Compiler_jll]]
 deps = ["Artifacts", "CUDA_Driver_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "TOML"]
-git-tree-sha1 = "0dbe33a5c6e97e64d317c18e6ee3df1610184949"
+git-tree-sha1 = "ae51a4aa8ac181f0b4ab64f0f0a34a284a21a29c"
 registries = "General"
 uuid = "d1e2174e-dfdc-576e-b43e-73b79eb1aca8"
-version = "0.6.5+0"
+version = "0.6.6+0"
 
 [[deps.CUDA_Driver_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "TOML"]
-git-tree-sha1 = "8794abb9272b6c0791863549ab3aa32eee29bf7d"
+git-tree-sha1 = "19bce68e07bcd5b356b279dce0a4c65b3dbb1a5f"
 registries = "General"
 uuid = "4ee394cb-3365-5eb0-8335-949819d2adfc"
-version = "13.5.0+0"
+version = "13.5.0+1"
 
 [[deps.CUDA_Runtime_Discovery]]
 deps = ["Libdl"]
@@ -409,12 +409,6 @@ git-tree-sha1 = "34d9873079e4cb3d0c62926a225136824677073f"
 registries = "General"
 uuid = "55437552-ac27-4d47-9aa3-63184e8fd398"
 version = "1.0.0"
-
-[[deps.ChunkSplitters]]
-git-tree-sha1 = "1c52c8e2673edc030191177ff1aee42d25149acb"
-registries = "General"
-uuid = "ae650224-84b6-46f8-82ea-d812ca08434e"
-version = "3.2.0"
 
 [[deps.CloseOpenIntervals]]
 deps = ["Static", "StaticArrayInterface"]
@@ -620,10 +614,10 @@ version = "1.1.0"
 
 [[deps.DataStructures]]
 deps = ["OrderedCollections"]
-git-tree-sha1 = "b0bc6d2cad1fed8b7fd59a1551a991cb3d2809e6"
+git-tree-sha1 = "50fc132ca085b05b7e09fe54447adc179c96df41"
 registries = "General"
 uuid = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
-version = "0.19.6"
+version = "0.19.7"
 
 [[deps.DataValueInterfaces]]
 git-tree-sha1 = "bfc1187b79289637fa0ef6d4436ebdfe6905cbd6"
@@ -690,10 +684,10 @@ version = "1.11.0"
 
 [[deps.Distributions]]
 deps = ["AliasTables", "FillArrays", "LinearAlgebra", "PDMats", "Printf", "QuadGK", "Random", "Roots", "SpecialFunctions", "Statistics", "StatsAPI", "StatsBase", "StatsFuns"]
-git-tree-sha1 = "478d3450b1cc56521d1d99ad923acf43f8813c6d"
+git-tree-sha1 = "dd1b020fc5b1326f310510244d72c10e4eacd0e5"
 registries = "General"
 uuid = "31c24e10-a181-5473-b8eb-7969acd0382f"
-version = "0.25.134"
+version = "0.25.135"
 
     [deps.Distributions.extensions]
     DistributionsChainRulesCoreExt = "ChainRulesCore"
@@ -858,10 +852,10 @@ version = "0.16.15"
 
 [[deps.ForwardDiff]]
 deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "LinearAlgebra", "LogExpFunctions", "NaNMath", "Preferences", "Printf", "Random", "SpecialFunctions"]
-git-tree-sha1 = "d05cff742a91d2c7aff386962aee5982bf57c096"
+git-tree-sha1 = "a6fec1fb7a2cebfa203852419f4f7bdd3f9a8b38"
 registries = "General"
 uuid = "f6369f11-7733-5829-9624-2563aa707210"
-version = "1.4.8"
+version = "1.5.0"
 weakdeps = ["StaticArrays"]
 
     [deps.ForwardDiff.extensions]
@@ -899,10 +893,10 @@ version = "0.2.2"
 
 [[deps.GPUCompiler]]
 deps = ["CompilerCaching", "ExprTools", "InteractiveUtils", "LLVM", "Libdl", "Logging", "PrecompileTools", "Preferences", "REPL", "ScopedValues", "TOML", "Tracy", "UUIDs", "tree_sitter_gcn_jll", "tree_sitter_llvm_jll", "tree_sitter_ptx_jll", "tree_sitter_spirv_jll"]
-git-tree-sha1 = "2a66558ca5eddcdaa1a25ffb307c9e12f5df8028"
+git-tree-sha1 = "3a0cd93954ebbaa9fb219dba95d5929972f11374"
 registries = "General"
 uuid = "61eb1bfa-7361-4325-ad38-22787b887f55"
-version = "2.22.2"
+version = "2.23.3"
 
     [deps.GPUCompiler.extensions]
     CthulhuExt = "Cthulhu"
@@ -1344,13 +1338,14 @@ version = "0.2.4"
 
 [[deps.KernelAbstractions]]
 deps = ["Adapt", "Atomix", "GPUCompiler", "GPUToolbox", "KernelInterface", "LLVM", "MacroTools", "PrecompileTools", "Printf", "Random", "Random123", "RandomNumbers", "SPIRVIntrinsics", "SPIRV_LLVM_Backend_jll", "SPIRV_Tools_jll", "StaticArraysCore", "ThreadTeams", "UnsafeAtomics", "pocl_standalone_jll"]
-git-tree-sha1 = "08b081d7d69e3cc989babee2c74c1d16c0f6baa1"
+git-tree-sha1 = "33ee3c9dc4b275a979c8b1ce90b912d70be35ea7"
 registries = "General"
 uuid = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
-version = "0.10.7"
+version = "0.10.8"
 
     [deps.KernelAbstractions.extensions]
     AMDGPUExt = "AMDGPU"
+    EnzymeExt = "EnzymeCore"
     LinearAlgebraExt = "LinearAlgebra"
     MetalExt = "Metal"
     SparseArraysExt = "SparseArrays"
@@ -1359,6 +1354,7 @@ version = "0.10.7"
 
     [deps.KernelAbstractions.weakdeps]
     AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
+    EnzymeCore = "f151be2c-9106-41f4-ab19-57ee4f262869"
     LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
     Metal = "dde4c033-4e86-420c-a63e-0dd931031962"
     SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
@@ -1380,10 +1376,10 @@ version = "4.3.0+0"
 
 [[deps.LLVM]]
 deps = ["CEnum", "LLVMExtra_jll", "Libdl", "PrecompileTools", "Preferences", "Printf", "ScopedValues", "Unicode"]
-git-tree-sha1 = "41c2ce7ec5a14c89b93dc6a5853bf2a91d7a8583"
+git-tree-sha1 = "cbb4c47c69648d9f80d01001111d942e0d11337a"
 registries = "General"
 uuid = "929cbde3-209d-540e-8aea-75f648917ca0"
-version = "10.4.3"
+version = "10.5.1"
 weakdeps = ["BFloat16s"]
 
     [deps.LLVM.extensions]
@@ -1391,10 +1387,10 @@ weakdeps = ["BFloat16s"]
 
 [[deps.LLVMExtra_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "TOML"]
-git-tree-sha1 = "39def0b4521e0ef2bf26960d8965729f496bb4ec"
+git-tree-sha1 = "13ddec415e5875204f0314bff5d8b82a9c1d8b2a"
 registries = "General"
 uuid = "dad2f222-ce93-54a1-a47d-0025e8a3acab"
-version = "0.0.56+0"
+version = "0.0.57+0"
 
 [[deps.LLVMLoopInfo]]
 git-tree-sha1 = "2e5c102cfc41f48ae4740c7eca7743cc7e7b75ea"
@@ -1750,7 +1746,7 @@ version = "0.3.4"
 
 [[deps.MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
-version = "2026.10.20"
+version = "2026.11.5"
 
 [[deps.NNlib]]
 deps = ["Adapt", "Atomix", "BFloat16s", "ChainRulesCore", "GPUArraysCore", "KernelAbstractions", "LinearAlgebra", "PrecompileTools", "Random", "ScopedValues", "Statistics"]
@@ -1858,18 +1854,6 @@ weakdeps = ["Adapt"]
     [deps.OffsetArrays.extensions]
     OffsetArraysAdaptExt = "Adapt"
 
-[[deps.OhMyThreads]]
-deps = ["BangBang", "ChunkSplitters", "ScopedValues", "StableTasks", "TaskLocalValues"]
-git-tree-sha1 = "a73a90d87e3f941f5084d34d56934c2fb59dd9b1"
-registries = "General"
-uuid = "67456a42-1dca-4109-a031-0a68de7e3ad5"
-version = "0.8.9"
-weakdeps = ["Markdown", "ProgressMeter"]
-
-    [deps.OhMyThreads.extensions]
-    MarkdownExt = "Markdown"
-    ProgressMeterExt = "ProgressMeter"
-
 [[deps.OneHotArrays]]
 deps = ["Adapt", "ChainRulesCore", "Compat", "GPUArraysCore", "LinearAlgebra", "NNlib"]
 git-tree-sha1 = "9510d7008275fc5b33fc72a73f8fddef0b5430c6"
@@ -1880,7 +1864,7 @@ version = "0.2.11"
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
-version = "0.3.30+0"
+version = "0.3.30+1"
 
 [[deps.OpenEXR]]
 deps = ["Colors", "FileIO", "OpenEXR_jll"]
@@ -2469,12 +2453,6 @@ registries = "General"
 uuid = "171d559e-b47b-412a-8079-5efa626c420e"
 version = "0.1.15"
 
-[[deps.StableTasks]]
-git-tree-sha1 = "c4f6610f85cb965bee5bfafa64cbeeda55a4e0b2"
-registries = "General"
-uuid = "91464d47-22a1-43fe-8b7f-2d57ee82463f"
-version = "0.1.7"
-
 [[deps.StackViews]]
 deps = ["OffsetArrays"]
 git-tree-sha1 = "be1cf4eb0ac528d96f5115b4ed80c26a8d8ae621"
@@ -2546,15 +2524,15 @@ version = "0.34.13"
 
 [[deps.StatsFuns]]
 deps = ["HypergeometricFunctions", "IrrationalConstants", "LogExpFunctions", "Reexport", "Rmath", "SpecialFunctions"]
-git-tree-sha1 = "91a5737baed20ee31f3faea0e51f57461f6a689e"
+git-tree-sha1 = "8e2409a154c54afbd3d1a0c1da97d5e7e4397f26"
 registries = "General"
 uuid = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
-version = "2.2.1"
+version = "2.3.1"
 weakdeps = ["ChainRulesCore", "InverseFunctions"]
 
     [deps.StatsFuns.extensions]
-    StatsFunsChainRulesCoreExt = "ChainRulesCore"
-    StatsFunsInverseFunctionsExt = "InverseFunctions"
+    ChainRulesCoreExt = "ChainRulesCore"
+    InverseFunctionsExt = "InverseFunctions"
 
 [[deps.StringDistances]]
 deps = ["Distances", "StatsAPI"]
@@ -2623,12 +2601,6 @@ deps = ["ArgTools", "SHA"]
 uuid = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
 version = "1.10.0"
 
-[[deps.TaskLocalValues]]
-git-tree-sha1 = "67e469338d9ce74fc578f7db1736a74d93a49eb8"
-registries = "General"
-uuid = "ed4db957-447d-4319-bfb6-7fa9ae7ecf34"
-version = "0.1.3"
-
 [[deps.TensorBoardLogger]]
 deps = ["CRC32c", "FileIO", "ImageCore", "ProtoBuf", "Requires", "StatsBase"]
 git-tree-sha1 = "64b287bdf7915278ddcb0563d72a522e838759b5"
@@ -2656,11 +2628,11 @@ uuid = "5e47fb64-e119-507b-a336-dd2b206d9990"
 version = "1.9.0"
 
 [[deps.ThreadTeams]]
-deps = ["ChunkSplitters", "OhMyThreads", "ScopedValues"]
-git-tree-sha1 = "15736830cfa2bc55b27769222cefb371800d4f25"
+deps = ["ScopedValues"]
+git-tree-sha1 = "8c7b37db670022a04816602587e99f27ee321f40"
 registries = "General"
 uuid = "100744f9-5cbb-42a9-938e-f15a20f71997"
-version = "1.4.0"
+version = "2.0.0"
 weakdeps = ["EnzymeCore"]
 
     [deps.ThreadTeams.extensions]
@@ -2998,14 +2970,14 @@ version = "2023.1.0+0"
 [[deps.p7zip_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
-version = "17.8.3+0"
+version = "17.8.5+0"
 
 [[deps.pocl_standalone_jll]]
 deps = ["Artifacts", "Hwloc_jll", "JLLWrappers", "Libdl", "SLEEF_jll", "Zstd_jll"]
-git-tree-sha1 = "305f3b390a68ab4297626cbe7eeaea88869e2cc0"
+git-tree-sha1 = "810c85e4c782dabe1f43cc43e3b9961265194d4d"
 registries = "General"
 uuid = "54f56a70-6062-5590-a942-1226658f6c83"
-version = "7.2.3+8"
+version = "7.2.3+9"
 
 [[deps.tree_sitter_gcn_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
