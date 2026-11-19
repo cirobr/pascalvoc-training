@@ -11,7 +11,7 @@ cd(@__DIR__)
 ### arguments
 envpath     = "../"
 cudadevice  = 0
-epochs      = 1 #500
+epochs      = 1 #150
 train_batch = 4
 accum_steps = 4
 valid_batch = train_batch * accum_steps
@@ -49,6 +49,7 @@ using TensorBoardLogger
 using Printf
 using ProgressBars; pb=ProgressBars
 import Statistics: mean, minimum, maximum, norm, std, median
+import StatsBase: countmap
 
 # private libs
 using LibFluxML
@@ -108,6 +109,18 @@ function convert_mask_to_tensor(mask)
             x->permutedims(x, (2,3,1)) |>                       # HWC
             x->x[:,:,1:end-1] .|>                               # remove 255/void class
             Bool
+end
+
+# ------------------------------------------------------------------
+# 1. Build a per-image class label (rarest foreground class present)
+# ------------------------------------------------------------------
+function rarest_class(mask_path; background=0, void=255)
+    mask = get_mask(mask_path)               # your existing function → Int matrix
+    counts = countmap(mask)
+    delete!(counts, background)
+    delete!(counts, void)
+    isempty(counts) && return background     # pure background image
+    return argmin(counts)                    # class with fewest pixels
 end
 
 
@@ -182,26 +195,23 @@ Nvalid = size(dfvalid, 1)
 @info "data frames OK"
 
 
-# calculate normalization parameters and class frequencies
-@info "calculating parameters ..."
-# img = get_image(expanduser(dftrain.X[1]); colorflag=colorflag)   # dummy image
+### normalization statistics
+# normalization statistics are calculated over immutable dataset,
+# except for padding
+@info "calculating normalization statistics ..."
 Xs = Array{Float32,4}(undef, (imagesize...,C_in,Ntrain))
-ys = Array{Int16,3}(undef, (imagesize...,Ntrain))
+mask = rand(classnrs, imagesize) .|> Int16 # dummy mask
 
 Threads.@threads for i in pb.ProgressBar(1:Ntrain)
-      img  = get_image(expanduser(dftrain.X[i]); colorflag=colorflag)
-      mask = get_mask(expanduser(dftrain.y[i]))
+      img = get_image(expanduser(dftrain.X[i]); colorflag=colorflag)
       
-      img, mask = apply_data_augmentation(img, mask;
+      img, _= apply_data_augmentation(img, mask;
                         intensity_tfm = Identity(),
                         geometric_tfm = CenterCrop(imagesize),
       )
-
       Xs[:,:,:,i] = convert_image_to_tensor(img)
-      ys[:,:,i] = mask
 end
 
-# normalization statistics
 means, stds = p.get_normalization_params(Xs)
 means = means |> x->trunc.(x,digits=3) .|> Float32
 stds  = stds  |> x->trunc.(x,digits=3) .|> Float32
@@ -210,23 +220,55 @@ stds  = stds  |> x->trunc.(x,digits=3) .|> Float32
 
 @show means
 @show stds
-@info "normalization parameters OK"
+Xs = nothing
+@info "normalization statistics OK"
 
-# class frequencies
+
+### re-sampling training set for regularization
+image_classes = [rarest_class(expanduser(p)) for p in dftrain.y]
+
+# dfview, _ = oversample(dftrain, image_classes; fraction=0.4, shuffle=true)
+dfview, _ = undersample(dftrain, image_classes; shuffle=true)
+dfbal = getobs(dfview)
+@info "Original size: $(nrow(dftrain)), balanced size: $(nrow(dfbal))"
+dftrain = dfbal
+dfbal = nothing
+
+Ntrain = size(dftrain, 1)
+Nvalid = size(dfvalid, 1)
+@info "data frames OK"
+
+
+# class frequencies are calculated over re-sampled training set
+@info "calculating class frequencies ..."
+ys = Array{Int16,3}(undef, (imagesize...,Ntrain))
+img = get_image(expanduser(dftrain.X[1]); colorflag=colorflag) # dummy image
+
+Threads.@threads for i in pb.ProgressBar(1:Ntrain)
+      mask = get_mask(expanduser(dftrain.y[i]))
+      
+      _, mask = apply_data_augmentation(img, mask;
+                        intensity_tfm = Identity(),
+                        geometric_tfm = CenterCrop(imagesize),
+      )
+      ys[:,:,i] = mask
+end
+
 cs = MLUtils.group_counts(ys) |> x->sort(collect(x))   # classes 0:20 + 255
 cs = cs[1:end-1]          # remove void class 255
 cs = [c[2] for c in cs]   # get only the counts
 @assert length(cs) == C_out || error("classes are not matching")
 
-# loss weights
 cs = cs[2:end]   # remove background class 0
 @info "class frequencies: $cs"
+
+
+# loss weights are calculated over re-sampled training set
 median_weights, inverse_weights, inverse_squared_weights, inverse_class_weights =
       LibFluxML.compute_class_weights(cs)
 train_weights = median_weights .|> Float32 |> dev
 @info "min weights: $(minimum(cpu(train_weights))), max weights: $(maximum(cpu(train_weights)))"
 
-Xs = nothing
 ys = nothing
 @info "loss weights OK"
 

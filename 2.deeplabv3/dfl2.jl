@@ -9,13 +9,13 @@ Template for training vision models.
 cd(@__DIR__)
 
 ### arguments
-# envpath       = "../"
-# cudadevice    = 1
-# epochs        = 50
-# train_batch   = 3
-# accum_steps   = 5
-# valid_batch   = train_batch * accum_steps
-# debugflag     = false
+envpath       = "../"
+cudadevice    = 0
+epochs        = 50
+train_batch   = 3
+accum_steps   = 5
+valid_batch   = train_batch * accum_steps
+debugflag     = true
 
 
 ### libs
@@ -177,8 +177,8 @@ N = size(df, 1)
 train_idx, val_idx = MLUtils.splitobs(1:N, at=0.7, shuffle=true)
 dftrain = df[train_idx, :]
 dfvalid = df[val_idx, :]
-# dftrain = first(dftrain, 50)
-# dfvalid = first(dfvalid, 20)
+# dftrain = first(dftrain, 100)
+# dfvalid = first(dfvalid, 50)
 # @warn "train/valid split: $(size(dftrain,1)) train, $(size(dfvalid,1)) valid"
 
 
@@ -197,16 +197,72 @@ end
 
 image_classes = [rarest_class(expanduser(p)) for p in dftrain.y]
 
-# fraction=0.4 → every class reaches at least 40 % of the size of the largest class
-dfview, classes_view = oversample(dftrain, image_classes; fraction=0.4, shuffle=true)
+dfview, _ = oversample(dftrain, image_classes; shuffle=true)
 dfbal = getobs(dfview)
 @info "Original size: $(nrow(dftrain)), balanced size: $(nrow(dfbal))"
+dftrain = dfbal
+dfbal = nothing
+
+Ntrain = size(dftrain, 1)
+Nvalid = size(dfvalid, 1)
+@info "data frames OK"
+
+
+# calculate normalization parameters and class frequencies
+@info "calculating parameters ..."
+# img = get_image(expanduser(dftrain.X[1]); colorflag=colorflag)   # dummy image
+Xs = Array{Float32,4}(undef, (imagesize...,C_in,Ntrain))
+ys = Array{Int16,3}(undef, (imagesize...,Ntrain))
+
+Threads.@threads for i in pb.ProgressBar(1:Ntrain)
+      img  = get_image(expanduser(dftrain.X[i]); colorflag=colorflag)
+      mask = get_mask(expanduser(dftrain.y[i]))
+      
+      img, mask = apply_data_augmentation(img, mask;
+                        intensity_tfm = Identity(),
+                        geometric_tfm = CenterCrop(imagesize),
+      )
+
+      Xs[:,:,:,i] = convert_image_to_tensor(img)
+      ys[:,:,i] = mask
+end
+
+# normalization statistics
+means, stds = p.get_normalization_params(Xs)
+means = means |> x->trunc.(x,digits=3) .|> Float32
+stds  = stds  |> x->trunc.(x,digits=3) .|> Float32
+# means = imagenet_means
+# stds  = imagenet_stds
+
+@show means
+@show stds
+@info "normalization parameters OK"
+
+# class frequencies
+cs = MLUtils.group_counts(ys) |> x->sort(collect(x))   # classes 0:20 + 255
+cs = cs[1:end-1]          # remove void class 255
+cs = [c[2] for c in cs]   # get only the counts
+@assert length(cs) == C_out || error("classes are not matching")
+
+# loss weights
+cs = cs[2:end]   # remove background class 0
+@info "class frequencies: $cs"
+median_weights, inverse_weights, inverse_squared_weights, inverse_class_weights =
+      LibFluxML.compute_class_weights(cs)
+train_weights = median_weights .|> Float32 |> dev
+@info "min weights: $(minimum(cpu(train_weights))), max weights: $(maximum(cpu(train_weights)))"
+
+Xs = nothing
+ys = nothing
+@info "loss weights OK"
 
 
 # debug mode
 if debugflag
-      dfbal = first(dfbal, 3)
+      dftrain = first(dftrain, 3)
       dfvalid = first(dfvalid, 2)
+      Ntrain  = size(dftrain, 1)
+      Nvalid  = size(dfvalid, 1)
       train_batch = 1
       accum_steps = 1
       valid_batch = 1
@@ -214,52 +270,6 @@ if debugflag
       @warn "Debug mode is ON"
 end
 # end debug mode
-
-Ntrain = size(dfbal, 1)
-Nvalid = size(dfvalid, 1)
-@info "dataset OK"
-
-# calculate normalization parameters and class frequencies
-@info "calculating parameters ..."
-# Xs = Array{Float32,4}(undef, (framesize...,C_in,Ntrain))
-img = get_image(expanduser(dfbal.X[1]); colorflag=colorflag)   # dummy image
-ys = Array{Bool,4}(undef, (framesize...,C_out,Ntrain))
-
-Threads.@threads for i in pb.ProgressBar(1:Ntrain)
-      # img  = get_image(expanduser(dfbal.X[i]); colorflag=colorflag)
-      mask = get_mask(expanduser(dfbal.y[i]))
-      
-      _, mask = apply_data_augmentation(img, mask;
-                        intensity_tfm = intensity_validpipe,
-                        geometric_tfm = geometric_validpipe,
-      )
-
-      # Xs[:,:,:,i] = convert_image_to_tensor(img)
-      ys[:,:,:,i] = convert_mask_to_tensor(mask)
-end
-
-# normalization statistics
-# means, stds = p.get_normalization_params(Xs)
-# means = means |> x->trunc.(x,digits=3) .|> Float32
-# stds  = stds  |> x->trunc.(x,digits=3) .|> Float32
-means = imagenet_means
-stds  = imagenet_stds
-
-@show means
-@show stds
-@info "normalization parameters OK"
-
-# class frequencies and weights
-cs = LibFluxML.compute_class_counts(ys)
-cs = cs[2:end]   # ignore background class
-median_weights, inverse_weights, inverse_squared_weights, inverse_class_weights =
-      LibFluxML.compute_class_weights(cs)
-
-train_weights = median_weights .|> Float32 |> dev
-
-Xs = nothing
-ys = nothing
-@info "loss weights OK"
 
 
 # data loading
