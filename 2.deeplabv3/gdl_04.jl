@@ -489,7 +489,7 @@ model_monitor.patience = 10*epochs           # not used
 
 stop_monitor = LibFluxML.EarlyStopper()
 stop_monitor.number_since_best = 20   # to bypass noise peaks
-stop_monitor.patience = 5
+stop_monitor.patience = 20
 
 # training loop
 LibCUDA.cleangpu()
