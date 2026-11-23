@@ -21,7 +21,7 @@ scripts = [
     # "dfl_07.jl",
     # "dfl_10.jl",
     # "gdl_04.jl",
-    "gdl_04_trial2.jl",
+    # "gdl_04_trial2.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
@@ -32,5 +32,5 @@ tblogs = @. "tblogs/" * scriptfolders * "/"
 @info "Batch started"
 @. rm(models, force=true, recursive=true)
 @. rm(tblogs, force=true, recursive=true)
-@. include(scripts)
+# @. include(scripts)
 @info "Batch completed!"
