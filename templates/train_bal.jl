@@ -58,6 +58,7 @@ using LibDataAug
 import LibDataAug: apply_data_augmentation
 using PascalVocTools; const pv=PascalVocTools
 using LibCUDA
+import("../functions/class_labels.jl")
 
 
 # dataset constants
@@ -109,18 +110,6 @@ function convert_mask_to_tensor(mask)
             x->permutedims(x, (2,3,1)) |>                       # HWC
             x->x[:,:,1:end-1] .|>                               # remove 255/void class
             Bool
-end
-
-# ------------------------------------------------------------------
-# 1. Build a per-image class label (rarest foreground class present)
-# ------------------------------------------------------------------
-function rarest_class(mask_path; background=0, void=255)
-    mask = get_mask(mask_path)               # your existing function → Int matrix
-    counts = countmap(mask)
-    delete!(counts, background)
-    delete!(counts, void)
-    isempty(counts) && return background     # pure background image
-    return argmin(counts)                    # class with fewest pixels
 end
 
 
@@ -225,14 +214,14 @@ Xs = nothing
 
 
 ### re-sampling training set for regularization
-image_classes = [rarest_class(expanduser(p)) for p in dftrain.y]
+# image_classes = [rarest_class(expanduser(p)) for p in dftrain.y]
 
-# dfview, _ = oversample(dftrain, image_classes; fraction=0.4, shuffle=true)
-dfview, _ = undersample(dftrain, image_classes; shuffle=true)
-dfbal = getobs(dfview)
-@info "Original size: $(nrow(dftrain)), balanced size: $(nrow(dfbal))"
-dftrain = dfbal
-dfbal = nothing
+# # dfview, _ = oversample(dftrain, image_classes; fraction=0.4, shuffle=true)
+# dfview, _ = undersample(dftrain, image_classes; shuffle=true)
+# dfbal = getobs(dfview)
+# @info "Original size: $(nrow(dftrain)), balanced size: $(nrow(dfbal))"
+# dftrain = dfbal
+# dfbal = nothing
 
 Ntrain = size(dftrain, 1)
 Nvalid = size(dfvalid, 1)
