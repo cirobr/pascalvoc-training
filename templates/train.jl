@@ -9,13 +9,13 @@ Template for training vision models.
 cd(@__DIR__)
 
 ### arguments
-envpath     = "../"
-cudadevice  = 0
-epochs      = 150
-train_batch = 4
-accum_steps = 4
-valid_batch = train_batch * accum_steps
-debugflag   = true
+# envpath     = "../"
+# cudadevice  = 0
+# epochs      = 150
+# train_batch = 4
+# accum_steps = 4
+# valid_batch = train_batch * accum_steps
+# debugflag   = true
 
 
 ### libs
@@ -456,7 +456,6 @@ Flux.train!(model, loader, optimizerState) do m, x, y
 end
 loader = nothing
 @info "warmup OK"
-# @assert false
 
 
 ###########################################

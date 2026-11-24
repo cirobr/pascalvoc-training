@@ -1,6 +1,6 @@
 """
 Author: cirobr@GitHub
-Date: 13-Nov-2026
+Date: 24-Nov-2026
 
 Template for kd vision models.
 """
@@ -11,7 +11,7 @@ cd(@__DIR__)
 ### arguments
 # envpath     = "../"
 # cudadevice  = 0
-# epochs      = 500
+# epochs      = 150
 # train_batch = 4
 # accum_steps = 4
 # valid_batch = train_batch * accum_steps
@@ -50,6 +50,7 @@ using TensorBoardLogger
 using Printf
 using ProgressBars; pb=ProgressBars
 import Statistics: mean, minimum, maximum, norm, std, median
+import StatsBase: countmap
 
 # private libs
 using LibFluxML
@@ -58,6 +59,7 @@ using LibDataAug
 import LibDataAug: apply_data_augmentation
 using PascalVocTools; const pv=PascalVocTools
 using LibCUDA
+include("../libraries/class_labels.jl")
 
 
 # dataset constants
@@ -85,17 +87,14 @@ teachermodel = Metalhead.backbone(ResNet(50; pretrain=true)) |> dev
 testmode!(teachermodel)
 @info "teacher model OK"
 
+
 # custom functions
 function get_image(path::String; colorflag::Bool)
       img = Images.load(expanduser(path))
       return colorflag ? RGB{N0f8}.(img) : Gray{N0f8}.(img)
 end
 
-# Pascal VOC mask PNG to integers conversion
-# to_ids(mask) = mask.index
-
 function get_mask(x::AbstractArray)
-      # return Images.load(expanduser(path)) |> mask->to_ids(mask) .|> Int16
       return Flux.activations(teachermodel, dev(x))[4] |> cpu
 end
 
@@ -182,42 +181,28 @@ dfvalid = df[val_idx, :]
 # dftrain = first(dftrain, 100)
 # dfvalid = first(dfvalid, 50)
 # @warn "train/valid split: $(size(dftrain,1)) train, $(size(dfvalid,1)) valid"
-
-# debug mode
-if debugflag
-      dftrain = first(dftrain, 3)
-      dfvalid = first(dfvalid, 2)
-      train_batch = 1
-      accum_steps = 1
-      valid_batch = 1
-      epochs  = 2
-      @warn "Debug mode is ON"
-end
-# end debug mode
-
 Ntrain = size(dftrain, 1)
 Nvalid = size(dfvalid, 1)
-@info "dataset OK"
+@info "data frames OK"
 
 
-# calculate normalization parameters and class frequencies
-@info "calculating parameters ..."
-Xs = Array{Float32,4}(undef, (framesize...,C_in,Ntrain))
-# ys = Array{Bool,4}(undef, (framesize...,C_out,Ntrain))
+### normalization statistics
+# normalization statistics are calculated over immutable dataset,
+# except for padding
+@info "calculating normalization statistics ..."
+Xs = Array{Float32,4}(undef, (imagesize...,C_in,Ntrain))
+mask = rand(classnrs, imagesize) .|> Int16 # dummy mask
 
 Threads.@threads for i in pb.ProgressBar(1:Ntrain)
-      img  = get_image(expanduser(dftrain.X[i]); colorflag=colorflag)
-      # mask = get_mask(expanduser(dftrain.y[i]))
+      img = get_image(expanduser(dftrain.X[i]); colorflag=colorflag)
       
-      img = apply_data_augmentation(img;
-                        intensity_tfm = intensity_validpipe,
-                        geometric_tfm = geometric_validpipe,
+      img, _= apply_data_augmentation(img, mask;
+                        intensity_tfm = Identity(),
+                        geometric_tfm = CenterCrop(imagesize),
       )
       Xs[:,:,:,i] = convert_image_to_tensor(img)
-      # ys[:,:,:,i] = convert_mask_to_tensor(mask)
 end
 
-# normalization statistics
 means, stds = p.get_normalization_params(Xs)
 means = means |> x->trunc.(x,digits=3) .|> Float32
 stds  = stds  |> x->trunc.(x,digits=3) .|> Float32
@@ -226,19 +211,28 @@ stds  = stds  |> x->trunc.(x,digits=3) .|> Float32
 
 @show means
 @show stds
-@info "normalization parameters OK"
-
-# class frequencies and weights
-# cs = LibFluxML.compute_class_counts(ys)
-# cs = cs[2:end]   # ignore background class
-# median_weights, inverse_weights, inverse_squared_weights, inverse_class_weights =
-#       LibFluxML.compute_class_weights(cs)
-
-# train_weights = median_weights .|> Float32 |> dev
-
 Xs = nothing
-ys = nothing
-# @info "loss weights OK"
+@info "normalization statistics OK"
+
+
+Ntrain = size(dftrain, 1)
+Nvalid = size(dfvalid, 1)
+@info "data frames OK"
+
+
+# debug mode
+if debugflag
+      dftrain = first(dftrain, 3)
+      dfvalid = first(dfvalid, 2)
+      Ntrain  = size(dftrain, 1)
+      Nvalid  = size(dfvalid, 1)
+      train_batch = 1
+      accum_steps = 1
+      valid_batch = 1
+      epochs  = 2
+      @warn "Debug mode is ON"
+end
+# end debug mode
 
 
 # data loading
@@ -359,11 +353,11 @@ validfn(yhat, y) = LibFluxML.softloss(yhat, y, Flux.kldivergence; T=1, dims=3)
 
 
 # optimizer & scheduler
-lr  = 1e-4
-lr2 = 2e-4
-lr3 = 5e-5
-β  = (0.9, 0.999)
-λ  = 5e-5           # or 1e-4
+lr  = 5e-5
+lr2 = 1e-4
+lr3 = 1e-5
+β   = (0.9, 0.999)
+λ   = 5e-5   # or 1e-4
 # cn = 1.0    # clip norm
 # cg = 1.0    # clip grad
 
@@ -376,7 +370,7 @@ opt = OptimiserChain(
 )
 # opt_mp = Optimisers.MixedPrecision(Float16, opt)
 optimizerState = Flux.setup(opt, model)
-# Flux.freeze!(optimizerState.encoder)
+# Flux.freeze!(optimizerState.backbone_head)
 
 T1 = 8
 T2 = 100
@@ -472,14 +466,6 @@ for (eta, epoch) in zip(scheduler, 1:epochs)
       end
       println()
 
-      # per-class IoU
-      # losses = LibFluxML.evaluatePerClassMetric(model, valid_loader, per_class_iou_score)
-      # println("Per-class IoU:")
-      # for (i, loss) in enumerate(losses)
-      #       @printf "   IoU Class %d: %.4f \n" classnrs[i] loss
-      # end
-      # println()
-
       # log data
       Base.with_logger(logger) do
             @info "Loss/Training" train_loss=trainloss
@@ -490,11 +476,6 @@ for (eta, epoch) in zip(scheduler, 1:epochs)
                   metric_name = nameof(metric)
                   @info "Metric/Validation/$metric_name" metric=value log_step_increment=0
             end
-            
-            # for (i, loss) in enumerate(losses)   # log per-class IoU
-            #       class_name = "Class $(classnrs[i])"
-            #       @info "Metric/Validation/IoU/$class_name" metric=loss log_step_increment=0
-            # end
       end
 
       # model checkpoint & early stopping
