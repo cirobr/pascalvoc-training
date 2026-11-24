@@ -7,7 +7,7 @@ Template for executing multiple scripts in series.
 
 ### arguments
 envpath       = "../"
-cudadevice    = 0
+cudadevice    = 1
 # epochs        = 500
 train_batch   = 4
 accum_steps   = 4
@@ -17,7 +17,7 @@ debugflag     = true
 
 ### projects
 scripts = [
-    "unet_encoder.jl",
+    "unet-encoder.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 

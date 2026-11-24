@@ -1,8 +1,8 @@
 """
 Author: cirobr@GitHub
-Date: 24-Nov-2026
+Date: 23-Nov-2026
 
-Template for kd vision models.
+Template for training vision models.
 """
 
 @info "*** Project $( basename(@__FILE__) ) started ***"
@@ -11,7 +11,7 @@ cd(@__DIR__)
 ### arguments
 # envpath     = "../"
 # cudadevice  = 0
-epochs      = 500
+# epochs      = 150
 # train_batch = 4
 # accum_steps = 4
 # valid_batch = train_batch * accum_steps
@@ -34,8 +34,7 @@ else
       @warn "gpu disabled: using cpu."
 end
 
-using Metalhead
-using TinyMachines
+# using TinyMachines
 using Images
 using DataAugmentation
 using OffsetArrays
@@ -53,9 +52,9 @@ import Statistics: mean, minimum, maximum, norm, std, median
 import StatsBase: countmap
 
 # private libs
+using DeepLab
 using LibFluxML
 using PreprocessingImages; p=PreprocessingImages
-using LibDataAug
 import LibDataAug: apply_data_augmentation
 using PascalVocTools; const pv=PascalVocTools
 using LibCUDA
@@ -64,9 +63,9 @@ include("../libraries/class_labels.jl")
 
 # dataset constants
 const imagesize = (500,500)   # original size
-const framesize = (256,256)   # cropped size
+const framesize = (384,384)   # cropped size
 const classnrs  = pv.class_numbers   # 0:20
-const C_out = 1024
+const C_out = length(classnrs)
 C_in = 3
 # C_in = 1
 colorflag =  C_in == 3 ? true : false
@@ -76,26 +75,17 @@ const imagenet_means = Float32[0.485, 0.456, 0.406]
 const imagenet_stds  = Float32[0.229, 0.224, 0.225]
 
 
-# teacher model
-@info "loading teacher model..."
-# size(activations()[1]) = (64, 64, 64, 1)
-# size(activations()[2]) = (64, 64, 256, 1)
-# espnet encoder -> size(activations()[3]) = (32, 32, 512, 1)
-# unet encoder   -> size(activations()[4]) = (16, 16, 1024, 1)
-# size(activations()[5]) = (8, 8, 2048, 1)
-teachermodel = Metalhead.backbone(ResNet(50; pretrain=true)) |> dev
-testmode!(teachermodel)
-@info "teacher model OK"
-
-
 # custom functions
 function get_image(path::String; colorflag::Bool)
       img = Images.load(expanduser(path))
       return colorflag ? RGB{N0f8}.(img) : Gray{N0f8}.(img)
 end
 
-function get_mask(x::AbstractArray)
-      return Flux.activations(teachermodel, dev(x))[4] |> cpu
+# Pascal VOC mask PNG to integers conversion
+to_ids(mask) = mask.index
+
+function get_mask(path::String)
+      return Images.load(expanduser(path)) |> mask->to_ids(mask) .|> Int16
 end
 
 function normalize_tensor(x::AbstractArray; means::AbstractVector, stds::AbstractVector)
@@ -115,41 +105,41 @@ function convert_image_to_tensor(img)
       return p.image2Float32(img) # HWC
 end
 
+function convert_mask_to_tensor(mask)
+      return Flux.onehotbatch(mask, (classnrs..., 255), 255) |> # CHW
+            x->permutedims(x, (2,3,1)) |>                       # HWC
+            x->x[:,:,1:end-1] .|>                               # remove 255/void class
+            Bool
+end
+
+
 # images augmentation
-const short_sides = 320:500
-const crop_size = framesize[1]
+const crop_size = framesize   # e.g. (256, 256)
 
-random_crop = RandomCentricCrop(
-      short_sides = short_sides,
-      crop = crop_size,
-)
-class_crop = ClassCentricCrop(
-      short_sides = short_sides,
-      crop = crop_size,
-)
-
+# ── Photometric (image only; masks are ignored) ──────────────────────────────
 intensity_trainpipe =
-      Maybe(AdjustBrightness(0.4), 0.8) |>
-      Maybe(AdjustContrast(0.4), 0.8) |>
-      Maybe(AdjustSaturation(0.4), 0.8) |>   # new - pass
-      Maybe(AdjustHue(0.15), 0.5) |>         # new - pass
-      Maybe(Grayscale(), 0.1) |>             # new - pass
-      Maybe(Posterize(6), 0.1) |>            # new - pass
-      Maybe(Solarize(0.5), 0.1) |>           # new - pass
-      Maybe(AdjustSharpness(2.0), 0.3) |>    # new - pass
-      Maybe(GaussianBlur((0.1, 2.0)), 0.3)   # new - pass
-geometric_trainpipe =
-      Maybe(FlipX{2}(), 0.5) |>
-      Maybe(Rotate(15), 0.5) |>
-      Maybe(WarpAffine(0.1), 0.5) |>         # closest to RandomAffine - pass
-      Maybe(RandomPerspective(0.2), 0.5) |>  # new - pass
-      OneOf(
-            [CenterResizeCrop(framesize), random_crop, class_crop],
-            [0.15, 0.15, 0.70]
-      )
+    ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.15) |>
+    Maybe(RandomGrayscale(0.1)) |>
+    Maybe(Posterize(6), 0.1) |>
+    Maybe(Solarize(0.5), 0.1) |>
+    Maybe(AdjustSharpness(2.0), 0.3) |>
+    Maybe(GaussianBlur((0.1, 2.0)), 0.3)
 
 intensity_validpipe = Identity()
-geometric_validpipe = CenterCrop(framesize)
+
+# ── Geometric (applied to both Image and MaskMulti) ──────────────────────────
+# Mild distortions + RandomResizedCrop for scale/position diversity.
+# This improves coverage of object sizes and locations → better mean IoU.
+geometric_trainpipe =
+    Maybe(FlipX{2}(), 0.5) |>
+    Maybe(Rotate(12), 0.5) |>                    # slightly milder than 15°
+    Maybe(WarpAffine(0.08), 0.4) |>              # native
+    # Maybe(RandomPerspective(0.15), 0.3) |>     # uncomment if you want mild perspective
+    RandomResizedCrop(crop_size;
+                      scale = (0.4, 1.0),         # multi-scale (was short_sides 320:500)
+                      ratio = (0.75, 1.33))       # modest aspect variation
+
+geometric_validpipe = CenterResizeCrop(crop_size)
 @info "environment OK"
 
 
@@ -189,35 +179,79 @@ Nvalid = size(dfvalid, 1)
 ### normalization statistics
 # normalization statistics are calculated over immutable dataset,
 # except for padding
-@info "calculating normalization statistics ..."
-Xs = Array{Float32,4}(undef, (imagesize...,C_in,Ntrain))
-mask = rand(classnrs, imagesize) .|> Int16 # dummy mask
+# @info "calculating normalization statistics ..."
+# Xs = Array{Float32,4}(undef, (imagesize...,C_in,Ntrain))
+# mask = rand(classnrs, imagesize) .|> Int16 # dummy mask
 
-Threads.@threads for i in pb.ProgressBar(1:Ntrain)
-      img = get_image(expanduser(dftrain.X[i]); colorflag=colorflag)
+# Threads.@threads for i in pb.ProgressBar(1:Ntrain)
+#       img = get_image(expanduser(dftrain.X[i]); colorflag=colorflag)
       
-      img, _= apply_data_augmentation(img, mask;
-                        intensity_tfm = Identity(),
-                        geometric_tfm = CenterCrop(imagesize),
-      )
-      Xs[:,:,:,i] = convert_image_to_tensor(img)
-end
+#       img, _= apply_data_augmentation(img, mask;
+#                         intensity_tfm = Identity(),
+#                         geometric_tfm = CenterCrop(imagesize),
+#       )
+#       Xs[:,:,:,i] = convert_image_to_tensor(img)
+# end
 
-means, stds = p.get_normalization_params(Xs)
-means = means |> x->trunc.(x,digits=3) .|> Float32
-stds  = stds  |> x->trunc.(x,digits=3) .|> Float32
-# means = imagenet_means
-# stds  = imagenet_stds
+# means, stds = p.get_normalization_params(Xs)
+# means = means |> x->trunc.(x,digits=3) .|> Float32
+# stds  = stds  |> x->trunc.(x,digits=3) .|> Float32
+means = imagenet_means
+stds  = imagenet_stds
 
 @show means
 @show stds
-Xs = nothing
+# Xs = nothing
 @info "normalization statistics OK"
 
+
+### (optional) re-sampling training set for regularization
+# image_classes = [rarest_class(expanduser(p)) for p in dftrain.y]
+
+# dfview, _ = oversample(dftrain, image_classes; fraction=0.4, shuffle=true)
+# dfview, _ = undersample(dftrain, image_classes; shuffle=true)
+# dfbal = getobs(dfview)
+# @info "Original size: $(nrow(dftrain)), balanced size: $(nrow(dfbal))"
+# dftrain = dfbal
+# dfbal = nothing
 
 Ntrain = size(dftrain, 1)
 Nvalid = size(dfvalid, 1)
 @info "data frames OK"
+
+
+# class frequencies are calculated over re-sampled training set
+@info "calculating class frequencies ..."
+ys = Array{Int16,3}(undef, (imagesize...,Ntrain))
+img = get_image(expanduser(dftrain.X[1]); colorflag=colorflag) # dummy image
+
+Threads.@threads for i in pb.ProgressBar(1:Ntrain)
+      mask = get_mask(expanduser(dftrain.y[i]))
+      
+      _, mask = apply_data_augmentation(img, mask;
+                        intensity_tfm = Identity(),
+                        geometric_tfm = CenterCrop(imagesize),
+      )
+      ys[:,:,i] = mask
+end
+
+cs = MLUtils.group_counts(ys) |> x->sort(collect(x))   # classes 0:20 + 255
+cs = cs[1:end-1]          # remove void class 255
+cs = [c[2] for c in cs]   # get only the counts
+@assert length(cs) == C_out || error("classes are not matching")
+
+cs = cs[2:end]   # remove background class 0
+@info "class frequencies: $cs"
+
+
+# loss weights are calculated over re-sampled training set
+median_weights, inverse_weights, inverse_squared_weights, inverse_class_weights =
+      LibFluxML.compute_class_weights(cs)
+train_weights = median_weights .|> Float32 |> dev
+@info "min weights: $(minimum(cpu(train_weights))), max weights: $(maximum(cpu(train_weights)))"
+
+ys = nothing
+@info "loss weights OK"
 
 
 # debug mode
@@ -242,29 +276,21 @@ struct PascalVocDataset
     geometric_tfm
 end
 
-# dataset interface
-# σnoise = 0.02
-# image_to_tensor_train = ImageToTensor() |> Normalize(means, stds) #|> GaussianNoise(σnoise)
-
 Flux.numobs(d::PascalVocDataset) = nrow(d.df)
 
 function Flux.getobs(d::PascalVocDataset, i::Int)
       row = d.df[i, :]
       
       img  = get_image(expanduser(row.X); colorflag=colorflag)
-      # mask = get_mask(expanduser(row.y))
+      mask = get_mask(expanduser(row.y))
     
-      img = apply_data_augmentation(img;
+      img, mask = apply_data_augmentation(img, mask;
                         intensity_tfm = d.intensity_tfm,
                         geometric_tfm = d.geometric_tfm,
       )
 
-      img_float = convert_image_to_tensor(img)
-
-      X = normalize_tensor(img_float; means=means, stds=stds)
-      y = normalize_tensor(img_float; means=imagenet_means, stds=imagenet_stds) |>
-          x->get_mask( insertdims(x, dims=4) )|>
-          x->dropdims(x, dims=4)
+      X = convert_image_to_tensor(img) |> x->normalize_tensor(x; means=means, stds=stds)
+      y = convert_mask_to_tensor(mask)
       
       return (X, y)
 end
@@ -304,16 +330,14 @@ valid_loader = Flux.DataLoader(valid_dataset,
 
 
 ### model
-# Conv1x1 = 131K parameters
-# bottleneck = 54K  parameters
-# aligner = Chain(
-#       Conv((1,1), 256=>64, init=Flux.kaiming_normal()),
-#       BatchNorm(64,leakyrelu),
-#       Conv((1,1), 64=>64,  init=Flux.kaiming_normal()),
-#       BatchNorm(64,leakyrelu),
-#       Conv((1,1), 64=>512, init=Flux.kaiming_normal()),
-# )
-modelcpu = TinyMachines.UNet(C_in, C_out; activation=leakyrelu).encoder
+model_state = Flux.state(bb32[1:end-1])
+Flux.loadmodel!(bb16[1:end-1], model_state)
+modelcpu = DeepLab.DeepLabV3(C_in, C_out;
+                              backbone=bb16,
+                              use_aux=true,
+                              aux_index=4,
+                              aspp_rates=(6,12,18),
+)
 # fpfn = "../2.baseline/models/dfl_2e-3_part2/bestmodel.jld2"
 # LibFluxML.loadModelState!(fpfn, modelcpu)
 # @info "model loaded from $fpfn"
@@ -336,19 +360,29 @@ loss = testfn(model, X, y)   # arguments (model, X, y) - follows Flux.train! >= 
 
 
 # loss functions
-"""
-NOTE: T² factor applies to log-based losses such as kldivergence and cross-entropy, but not to mse.
-The mse loss is already scaled by the temperature factor in the softmax function.
-"""
-### Distillation temperature: T=1 for encoder, T=3 or 4 for logits.
-lossfn(yhat, y; T=1) = (T^2) * LibFluxML.softloss(yhat, y, Flux.kldivergence; T=T, dims=3)
-
+lossfn(yhat, y) = LibFluxML.dfl(yhat, y;
+                        logits=true,
+                        include_background=false,
+                        exclude_voids=true,
+                        gamma=2.0,
+                        focal_weight=1.0,
+                        dice_weight =1.0,
+                        weights=train_weights,
+                        reduction=:mean,
+                        device=dev,
+)
 function trainfn(model, X, y)
       yhat = model(X)
       return lossfn(yhat, y)
 end
 
-validfn(yhat, y) = LibFluxML.softloss(yhat, y, Flux.kldivergence; T=1, dims=3)
+validfn(yhat, y) = LibFluxML.iou_loss(yhat, y;
+                        logits=true,
+                        include_background=false,
+                        exclude_voids=true,
+                        reduction=:mean,
+                        device=dev,
+)
 @info "loss functions OK"
 
 
@@ -370,31 +404,37 @@ opt = OptimiserChain(
 )
 # opt_mp = Optimisers.MixedPrecision(Float16, opt)
 optimizerState = Flux.setup(opt, model)
-# Flux.freeze!(optimizerState.backbone_head)
+Flux.freeze!(optimizerState.backbone_head)
 
-# T1 = 8
-# T2 = 100
+T1 = 8
+T2 = 150 - T1
 # T3 = 500 - (T1+T2)
-# raising_part  = Triangle(l0=lr, l1=lr2, period=2*T1) # 1/2 period triangle
-# cosine_part   = CosAnneal(l0=lr2, l1=lr3, period=T2, restart=false)
+raising_part  = Triangle(l0=lr, l1=lr2, period=2*T1) # 1/2 period triangle
+cosine_part   = CosAnneal(l0=lr2, l1=lr3, period=T2, restart=false)
 # constant_part = lr3
-# scheduler = Sequence(raising_part => T1, cosine_part => T2, constant_part => T3)
+scheduler = Sequence(raising_part => T1, cosine_part => T2)
 @info "optimizer OK"
 
 
 # one-number metrics
-soft_cos_loss(yhat, y) = LibFluxML.softloss(yhat, y, LibFluxML.cosine_loss; T=1, dims=3)
-soft_kldiv(yhat, y)    = LibFluxML.softloss(yhat, y, Flux.kldivergence; T=1, dims=3)
-const ssim_conv = LibFluxML.make_ssim_conv(C_out; kernel_size=11, σ=1.5f0) |> dev
-ssim(yhat, y)          = LibFluxML.ssim(yhat, y; SSIM_CONV=ssim_conv)
-
+acc_score(yhat,y) = LibFluxML.acc_score(yhat, y; logits=true, exclude_voids=true, device=dev)
+f1_score(yhat,y)  = LibFluxML.f1_score(yhat, y; logits=true, exclude_voids=true, device=dev)
+iou_score(yhat,y) = LibFluxML.iou_score(yhat, y; logits=true, exclude_voids=true, device=dev)
+mean_iou(yhat,y)  = LibFluxML.per_class_iou(yhat, y; logits=true, exclude_voids=true, reduction=:mean,
+                              device=dev)
+validCE(yhat, y)  = LibFluxML.ce_loss(yhat, y; logits=true, include_background=false, exclude_voids=true,
+                              weights=train_weights, reduction=:mean,
+                              device=dev)
 metrics = [
-      Flux.mae,
-      Flux.mse,
-      soft_cos_loss,
-      soft_kldiv,
-      ssim,
+      acc_score,
+      f1_score,
+      iou_score,
+      mean_iou,
+      validCE,
 ]
+
+# per-class metrics
+per_class_iou_score(yhat,y) = LibFluxML.per_class_iou(yhat, y; logits=true, exclude_voids=true, device=dev)
 @info "metrics OK"
 
 
@@ -433,14 +473,15 @@ LibCUDA.cleangpu()
 reset!(logger)
 
 validlosses = []
-for epoch in 1:epochs
-# for (eta, epoch) in zip(scheduler, 1:epochs)
+# for epoch in 1:epochs
+for (eta, epoch) in zip(scheduler, 1:epochs)
       LibCUDA.garbage_collection()
       # LibCUDA.cleangpu()
+      if epoch == 21   Flux.thaw!(optimizerState)   end
 
       @printf "*** Epoch %d/%d ***\n" epoch epochs
-      # Flux.adjust!(optimizerState, eta)
-      # @printf "Learning rate: %.3e \n\n" eta
+      Flux.adjust!(optimizerState, eta)
+      @printf "Learning rate: %.3e \n\n" eta
 
       # train epoch
       trainloss = 
@@ -466,6 +507,14 @@ for epoch in 1:epochs
       end
       println()
 
+      # per-class IoU
+      losses = LibFluxML.evaluatePerClassMetric(model, valid_loader, per_class_iou_score; device=dev)
+      println("Per-class IoU:")
+      for (i, loss) in enumerate(losses)
+            @printf "   IoU Class %d: %.4f \n" classnrs[i] loss
+      end
+      println()
+
       # log data
       Base.with_logger(logger) do
             @info "Loss/Training" train_loss=trainloss
@@ -475,6 +524,11 @@ for epoch in 1:epochs
             for (metric, value) in zip(metrics, validmetrics)   # log metrics
                   metric_name = nameof(metric)
                   @info "Metric/Validation/$metric_name" metric=value log_step_increment=0
+            end
+            
+            for (i, loss) in enumerate(losses)   # log per-class IoU
+                  class_name = "Class $(classnrs[i])"
+                  @info "Metric/Validation/IoU/$class_name" metric=loss log_step_increment=0
             end
       end
 
@@ -496,12 +550,10 @@ close(logger)
 
 # rename the best model state
 mv(expanduser(modelsfolder) * "model.jld2", expanduser(modelsfolder) * "bestmodel.jld2", force=true)
-LibFluxML.saveModelState(expanduser(modelsfolder) * "bestencoder.jld2", model[1])
 @info "training OK"
 
 
 # cleanup
-teachermodel = nothing
 modelcpu = nothing
 model    = nothing
 LibCUDA.cleangpu()

@@ -59,7 +59,7 @@ using LibDataAug
 import LibDataAug: apply_data_augmentation
 using PascalVocTools; const pv=PascalVocTools
 using LibCUDA
-include("../functions/diagnostics.jl")
+include("../libraries/diagnostics.jl")
 
 
 # dataset constants
