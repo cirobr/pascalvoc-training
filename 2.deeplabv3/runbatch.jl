@@ -8,7 +8,7 @@ Template for executing multiple scripts in series.
 ### arguments
 envpath       = "../"
 cudadevice    = 1
-epochs        = 150
+# epochs        = 150
 train_batch   = 3
 accum_steps   = 5
 valid_batch   = train_batch * accum_steps
@@ -22,8 +22,9 @@ scripts = [
     # "dfl_10.jl",
     # "gdl_04.jl",
     # "gdl_04_trial2.jl",
-    "dflnew.jl",
-    "dflnew_04.jl",
+    # "dflnew.jl",
+    # "dflnew_04.jl",
+    "dflnew_long.jl",
 ]
 scriptfolders = [s[1:end-3] for s in scripts]
 
