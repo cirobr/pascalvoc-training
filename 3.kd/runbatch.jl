@@ -12,7 +12,7 @@ cudadevice    = 1
 train_batch   = 4
 accum_steps   = 4
 valid_batch   = train_batch * accum_steps
-debugflag     = true
+debugflag     = false
 
 
 ### projects

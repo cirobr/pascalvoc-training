@@ -38,9 +38,6 @@ using Metalhead
 using TinyMachines
 using Images
 using DataAugmentation
-import DataAugmentation: 
-      AdjustSaturation, AdjustHue, Grayscale, GaussianBlur, Solarize, Posterize,
-      AdjustSharpness
 using OffsetArrays
 using DataFrames
 using MLUtils
@@ -58,11 +55,9 @@ import StatsBase: countmap
 # private libs
 using LibFluxML
 using PreprocessingImages; p=PreprocessingImages
-using LibDataAug
 import LibDataAug: apply_data_augmentation
 using PascalVocTools; const pv=PascalVocTools
 using LibCUDA
-# include("../libraries/class_labels.jl")
 
 
 # dataset constants
@@ -118,9 +113,7 @@ function convert_image_to_tensor(img)
       return p.image2Float32(img) # HWC
 end
 
-const crop_size = framesize   # e.g. (256, 256)
-
-# ── Photometric (image only; masks are ignored) ──────────────────────────────
+# images augmentation
 intensity_trainpipe =
     ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.15) |>
     Maybe(RandomGrayscale(0.1)) |>
@@ -131,19 +124,16 @@ intensity_trainpipe =
 
 intensity_validpipe = Identity()
 
-# ── Geometric (applied to both Image and MaskMulti) ──────────────────────────
-# Mild distortions + RandomResizedCrop for scale/position diversity.
-# This improves coverage of object sizes and locations → better mean IoU.
 geometric_trainpipe =
     Maybe(FlipX{2}(), 0.5) |>
     Maybe(Rotate(12), 0.5) |>                    # slightly milder than 15°
     Maybe(WarpAffine(0.08), 0.4) |>              # native
     # Maybe(RandomPerspective(0.15), 0.3) |>     # uncomment if you want mild perspective
-    RandomResizedCrop(crop_size;
+    RandomResizedCrop(framesize;
                       scale = (0.4, 1.0),         # multi-scale (was short_sides 320:500)
                       ratio = (0.75, 1.33))       # modest aspect variation
 
-geometric_validpipe = CenterResizeCrop(crop_size)
+geometric_validpipe = CenterResizeCrop(framesize)
 @info "environment OK"
 
 
@@ -235,10 +225,6 @@ struct PascalVocDataset
     intensity_tfm
     geometric_tfm
 end
-
-# dataset interface
-# σnoise = 0.02
-# image_to_tensor_train = ImageToTensor() |> Normalize(means, stds) #|> GaussianNoise(σnoise)
 
 Flux.numobs(d::PascalVocDataset) = nrow(d.df)
 
@@ -367,7 +353,7 @@ optimizerState = Flux.setup(opt, model)
 # Flux.freeze!(optimizerState.backbone_head)
 
 # T1 = 8
-# T2 = 150
+# T2 = 100
 # T3 = 500 - (T1+T2)
 # raising_part  = Triangle(l0=lr, l1=lr2, period=2*T1) # 1/2 period triangle
 # cosine_part   = CosAnneal(l0=lr2, l1=lr3, period=T2, restart=false)
