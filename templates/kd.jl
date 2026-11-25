@@ -55,7 +55,6 @@ import StatsBase: countmap
 # private libs
 using LibFluxML
 using PreprocessingImages; p=PreprocessingImages
-using LibDataAug
 import LibDataAug: apply_data_augmentation
 using PascalVocTools; const pv=PascalVocTools
 using LibCUDA
@@ -116,40 +115,26 @@ function convert_image_to_tensor(img)
 end
 
 # images augmentation
-const short_sides = 320:500
-const crop_size = framesize[1]
-
-random_crop = RandomCentricCrop(
-      short_sides = short_sides,
-      crop = crop_size,
-)
-class_crop = ClassCentricCrop(
-      short_sides = short_sides,
-      crop = crop_size,
-)
-
 intensity_trainpipe =
-      Maybe(AdjustBrightness(0.4), 0.8) |>
-      Maybe(AdjustContrast(0.4), 0.8) |>
-      Maybe(AdjustSaturation(0.4), 0.8) |>   # new - pass
-      Maybe(AdjustHue(0.15), 0.5) |>         # new - pass
-      Maybe(Grayscale(), 0.1) |>             # new - pass
-      Maybe(Posterize(6), 0.1) |>            # new - pass
-      Maybe(Solarize(0.5), 0.1) |>           # new - pass
-      Maybe(AdjustSharpness(2.0), 0.3) |>    # new - pass
-      Maybe(GaussianBlur((0.1, 2.0)), 0.3)   # new - pass
-geometric_trainpipe =
-      Maybe(FlipX{2}(), 0.5) |>
-      Maybe(Rotate(15), 0.5) |>
-      Maybe(WarpAffine(0.1), 0.5) |>         # closest to RandomAffine - pass
-      Maybe(RandomPerspective(0.2), 0.5) |>  # new - pass
-      OneOf(
-            [CenterResizeCrop(framesize), random_crop, class_crop],
-            [0.15, 0.15, 0.70]
-      )
+    ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.15) |>
+    Maybe(RandomGrayscale(0.1)) |>
+    Maybe(Posterize(6), 0.1) |>
+    Maybe(Solarize(0.5), 0.1) |>
+    Maybe(AdjustSharpness(2.0), 0.3) |>
+    Maybe(GaussianBlur((0.1, 2.0)), 0.3)
 
 intensity_validpipe = Identity()
-geometric_validpipe = CenterCrop(framesize)
+
+geometric_trainpipe =
+    Maybe(FlipX{2}(), 0.5) |>
+    Maybe(Rotate(12), 0.5) |>                    # slightly milder than 15°
+    Maybe(WarpAffine(0.08), 0.4) |>              # native
+    # Maybe(RandomPerspective(0.15), 0.3) |>     # uncomment if you want mild perspective
+    RandomResizedCrop(framesize;
+                      scale = (0.4, 1.0),         # multi-scale (was short_sides 320:500)
+                      ratio = (0.75, 1.33))       # modest aspect variation
+
+geometric_validpipe = CenterResizeCrop(framesize)
 @info "environment OK"
 
 
@@ -241,10 +226,6 @@ struct PascalVocDataset
     intensity_tfm
     geometric_tfm
 end
-
-# dataset interface
-# σnoise = 0.02
-# image_to_tensor_train = ImageToTensor() |> Normalize(means, stds) #|> GaussianNoise(σnoise)
 
 Flux.numobs(d::PascalVocDataset) = nrow(d.df)
 
