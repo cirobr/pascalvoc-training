@@ -9,9 +9,9 @@ Template for executing multiple scripts in series.
 envpath       = "../"
 cudadevice    = 1
 # epochs        = 500
-train_batch   = 4
-accum_steps   = 4
-valid_batch   = train_batch * accum_steps
+train_batch   = 2
+accum_steps   = 7
+valid_batch   = 16
 debugflag     = false
 
 

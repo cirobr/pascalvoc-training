@@ -64,7 +64,7 @@ using LibCUDA
 const imagesize = (500,500)   # original size
 const framesize = (256,256)   # cropped size
 const classnrs  = pv.class_numbers   # 0:20
-const C_out = 1024
+const C_out = length(classnrs)
 C_in = 3
 # C_in = 1
 colorflag =  C_in == 3 ? true : false
@@ -126,12 +126,12 @@ intensity_validpipe = Identity()
 
 geometric_trainpipe =
     Maybe(FlipX{2}(), 0.5) |>
-    Maybe(Rotate(12), 0.5) |>                    # slightly milder than 15°
-    Maybe(WarpAffine(0.08), 0.4) |>              # native
-    # Maybe(RandomPerspective(0.15), 0.3) |>     # uncomment if you want mild perspective
+    Maybe(Rotate(12), 0.5) |>
+    Maybe(WarpAffine(0.08), 0.4) |>
+    # Maybe(RandomPerspective(0.15), 0.3) |>   # uncomment if you want mild perspective
     RandomResizedCrop(framesize;
-                      scale = (0.4, 1.0),         # multi-scale (was short_sides 320:500)
-                      ratio = (0.75, 1.33))       # modest aspect variation
+                      scale = (0.4, 1.0),
+                      ratio = (0.75, 1.33))    # modest aspect variation
 
 geometric_validpipe = CenterResizeCrop(framesize)
 @info "environment OK"
@@ -287,13 +287,14 @@ valid_loader = Flux.DataLoader(valid_dataset,
 # Conv1x1 = 131K parameters
 # bottleneck = 54K  parameters
 # aligner = Chain(
-#       Conv((1,1), 256=>64, init=Flux.kaiming_normal()),
-#       BatchNorm(64,leakyrelu),
-#       Conv((1,1), 64=>64,  init=Flux.kaiming_normal()),
-#       BatchNorm(64,leakyrelu),
-#       Conv((1,1), 64=>512, init=Flux.kaiming_normal()),
+#       Conv((1,1), 1024=>256, init=Flux.kaiming_normal()),
+#       BatchNorm(256,leakyrelu),
+#       Conv((1,1), 256=>256,  init=Flux.kaiming_normal()),
+#       BatchNorm(256,leakyrelu),
+#       Conv((1,1), 256=>1024, init=Flux.kaiming_normal()),
 # )
 modelcpu = TinyMachines.UNet(C_in, C_out; activation=leakyrelu).encoder
+# modelcpu = Chain(studentmodel, aligner)
 # fpfn = "../2.baseline/models/dfl_2e-3_part2/bestmodel.jld2"
 # LibFluxML.loadModelState!(fpfn, modelcpu)
 # @info "model loaded from $fpfn"
@@ -365,7 +366,7 @@ optimizerState = Flux.setup(opt, model)
 # one-number metrics
 soft_cos_loss(yhat, y) = LibFluxML.softloss(yhat, y, LibFluxML.cosine_loss; T=1, dims=3)
 soft_kldiv(yhat, y)    = LibFluxML.softloss(yhat, y, Flux.kldivergence; T=1, dims=3)
-const ssim_conv = LibFluxML.make_ssim_conv(C_out; kernel_size=11, σ=1.5f0) |> dev
+const ssim_conv = LibFluxML.make_ssim_conv(1024; kernel_size=11, σ=1.5f0) |> dev
 ssim(yhat, y)          = LibFluxML.ssim(yhat, y; SSIM_CONV=ssim_conv)
 
 metrics = [
@@ -415,8 +416,8 @@ reset!(logger)
 validlosses = []
 for epoch in 1:epochs
 # for (eta, epoch) in zip(scheduler, 1:epochs)
-      LibCUDA.garbage_collection()
-      # LibCUDA.cleangpu()
+      # LibCUDA.garbage_collection()
+      LibCUDA.cleangpu()
 
       @printf "*** Epoch %d/%d ***\n" epoch epochs
       # Flux.adjust!(optimizerState, eta)
@@ -482,6 +483,8 @@ LibFluxML.saveModelState(expanduser(modelsfolder) * "bestencoder.jld2", model[1]
 
 # cleanup
 teachermodel = nothing
+aligner = nothing
+studentmodel = nothing
 modelcpu = nothing
 model    = nothing
 LibCUDA.cleangpu()
