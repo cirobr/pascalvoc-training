@@ -58,7 +58,7 @@ using PreprocessingImages; p=PreprocessingImages
 import LibDataAug: apply_data_augmentation
 using PascalVocTools; const pv=PascalVocTools
 using LibCUDA
-include("../libraries/class_labels.jl")
+include("../julia_libs/class_labels.jl")
 
 
 # dataset constants
