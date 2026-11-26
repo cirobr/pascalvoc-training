@@ -74,9 +74,9 @@ if not os.path.exists(tblogspath):
 
 # dataset constants
 # imagesize = (1024, 2048)     # original size
-scalefixed = (512, 1024)
-framesize  = (448, 896)      # square:(512, 512)   # 2 by 1: (384×768, 448×896)
-classnrs   = np.arange(19)   # 0-18 classes, 255 is ignore class
+# scalefixed = (512, 1024)
+framesize  = (512, 512)      # square:(512, 512)   # 2 by 1: (384×768, 448×896)
+classnrs   = np.arange(21)   # 0-20 classes, 255 is ignore class
 C = len(classnrs)
 
 
@@ -127,7 +127,7 @@ train_transform = v2.Compose([
 
 # Validation transform (no randomness)
 valid_transform = v2.Compose([
-    v2.Resize(size=scalefixed, antialias=True),   # or keep original size?
+    # v2.Resize(size=scalefixed, antialias=True),   # or keep original size?
     v2.CenterCrop(size=framesize),
     # Final conversion & normalization
     v2.ToImage(),
@@ -163,7 +163,7 @@ def wrap_valid_transform(i, m):
     image, mask = valid_transform(image, mask)
 
     # Encode labels and convert to long tensor
-    mask = encode_labels(mask)   # map Cityscapes labels from 0-33 to 0-19 classes
+    # mask = encode_labels(mask)   # map Cityscapes labels from 0-33 to 0-19 classes
     mask = torch.from_numpy(np.array(mask)).long().squeeze(0)
 
     return image, mask
@@ -180,8 +180,8 @@ full_dataset = VOCSegmentation(
     # transforms=wrap_train_transform,   # note: transforms (plural)
 )
 
+set_determinism()
 train_dataset, valid_dataset = torch.utils.data.random_split(full_dataset, [0.7, 0.3])
-assert False
 
 cs, px = compute_class_frequencies(train_dataset, num_classes=C)
 # cs = torch.tensor([2.4141e+08, 2.3166e+07, 1.1156e+08, 3.0265e+06, 3.4000e+06,
@@ -192,6 +192,26 @@ cs, px = compute_class_frequencies(train_dataset, num_classes=C)
 
 ws = compute_class_weights(cs, total_pixels=px, num_classes=C)
 train_weights = ws['median'].to(dev)
+
+# Wrapper so each split can use its own transform (train aug vs valid deterministic)
+class ApplyTransform:
+    """Dataset wrapper that applies a joint image/mask transform on __getitem__."""
+    def __init__(self, subset, transform):
+        self.subset = subset
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.subset)
+
+    def __getitem__(self, idx):
+        image, mask = self.subset[idx]
+        return self.transform(image, mask)
+
+# Apply the appropriate transforms to each split
+train_dataset = ApplyTransform(train_dataset, wrap_train_transform)
+valid_dataset = ApplyTransform(valid_dataset, wrap_valid_transform)
+
+assert False
 
 # For quick testing
 if debugflag:
