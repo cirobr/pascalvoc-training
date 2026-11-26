@@ -181,6 +181,7 @@ full_dataset = VOCSegmentation(
 )
 
 train_dataset, valid_dataset = torch.utils.data.random_split(full_dataset, [0.7, 0.3])
+assert False
 
 cs, px = compute_class_frequencies(train_dataset, num_classes=C)
 # cs = torch.tensor([2.4141e+08, 2.3166e+07, 1.1156e+08, 3.0265e+06, 3.4000e+06,
@@ -188,7 +189,6 @@ cs, px = compute_class_frequencies(train_dataset, num_classes=C)
 #                    2.6375e+07, 7.5897e+06, 1.0336e+06, 3.5327e+07, 1.4770e+06,
 #                    1.6057e+06, 1.4516e+06, 5.2571e+05, 2.2060e+06])
 # px = 566_483_088
-assert False
 
 ws = compute_class_weights(cs, total_pixels=px, num_classes=C)
 train_weights = ws['median'].to(dev)
